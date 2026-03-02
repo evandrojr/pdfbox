@@ -29,7 +29,7 @@
     <relativePath />
   </parent>
 
-  <groupId>org.apache.pdfbox</groupId>
+  <groupId>org.apache.pdfbox-serpro</groupId>
   <artifactId>pdfbox-parent</artifactId>
   <version>2.0.36-SNAPSHOT</version>
   <packaging>pom</packaging>

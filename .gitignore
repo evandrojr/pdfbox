@@ -5,3 +5,5 @@ bin/
 .project
 .idea/
 *.iml
+.LCKpom.xml~
+mvn-build.log
