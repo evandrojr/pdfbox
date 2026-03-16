@@ -44,6 +44,50 @@ The default build will compile the Java sources and package the binary
 classes into jar packages. See the Maven documentation for all the
 other available build options.
 
+Publish on GitHub Packages
+--------------------------
+
+This fork can also publish its Maven artifacts to GitHub Packages.
+
+For local publishing, configure `~/.m2/settings.xml` with GitHub credentials
+for the `github` server:
+
+```xml
+<settings>
+  <servers>
+    <server>
+      <id>github</id>
+      <username>YOUR_GITHUB_USERNAME</username>
+      <password>YOUR_GITHUB_TOKEN</password>
+    </server>
+  </servers>
+</settings>
+```
+
+Then publish with:
+
+    mvn -Pgithub-packages -Dgithub.repository=OWNER/REPO deploy
+
+In GitHub Actions, the `github.repository` property is filled automatically
+from `GITHUB_REPOSITORY`, so the repository workflow can publish without
+hardcoding the owner and repository name.
+
+To download artifacts from GitHub Packages in another Maven project, add the
+GitHub repository:
+
+```xml
+<repositories>
+  <repository>
+    <id>github</id>
+    <url>https://maven.pkg.github.com/OWNER/REPO</url>
+  </repository>
+</repositories>
+```
+
+And make sure the consuming machine also has credentials for the same `github`
+server in `settings.xml`. GitHub Packages requires authentication even for
+package downloads.
+
 Contribute
 ----------
 

@@ -56,6 +56,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <github.repository>${env.GITHUB_REPOSITORY}</github.repository>
     <bouncycastle.version>1.83</bouncycastle.version>
     <junit.version>4.13.2</junit.version>
     <jbig2.version>3.0.4</jbig2.version>
@@ -254,6 +255,21 @@
   </build>
 
 <profiles>
+  <profile>
+      <id>github-packages</id>
+      <distributionManagement>
+          <repository>
+              <id>github</id>
+              <name>GitHub Packages</name>
+              <url>https://maven.pkg.github.com/${github.repository}</url>
+          </repository>
+          <snapshotRepository>
+              <id>github</id>
+              <name>GitHub Packages</name>
+              <url>https://maven.pkg.github.com/${github.repository}</url>
+          </snapshotRepository>
+      </distributionManagement>
+  </profile>
   <!-- call mvn with -Pjdk9 or call with -Daddmod="...." -->
   <profile>
       <id>jdk9</id>
