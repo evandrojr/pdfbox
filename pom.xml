@@ -44,6 +44,10 @@
     <module>examples</module>
   </modules>
 
+  <properties>
+    <dependency-track.projectName>0054.99411.ASSINADIG.pdfbox-serpro</dependency-track.projectName>
+  </properties>
+
   <scm>
     <connection>scm:svn:https://svn.apache.org/repos/asf/pdfbox/branches/2.0</connection>
     <developerConnection>scm:svn:https://svn.apache.org/repos/asf/pdfbox/branches/2.0</developerConnection>
