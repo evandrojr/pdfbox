@@ -322,7 +322,7 @@ public class PDType0Font extends PDFont implements PDVectorFont
     /**
      * Fetches the corresponding UCS2 CMap if the font's CMap is predefined.
      */
-    private void fetchCMapUCS2() throws IOException
+    private void fetchCMapUCS2()
     {
         // if the font is composite and uses a predefined cmap (excluding Identity-H/V)
         // or whose descendant CIDFont uses the Adobe-GB1, Adobe-CNS1, Adobe-Japan1, or
@@ -354,7 +354,7 @@ public class PDType0Font extends PDFont implements PDVectorFont
                 strName = name.getName();
             }
             
-            // try to find the corresponding Unicode (UC2) CMap
+            // try to find the corresponding Unicode (UCS2) CMap
             if (strName != null)
             {
                 try
@@ -365,7 +365,7 @@ public class PDType0Font extends PDFont implements PDVectorFont
                 }
                 catch (IOException ex)
                 {
-                    LOG.warn("Could not get " + strName + " UC2 map for font " + getName(), ex);
+                    LOG.warn("Could not get " + strName + " UCS2 map for font " + getName(), ex);
                 }
             }
         }
@@ -396,7 +396,7 @@ public class PDType0Font extends PDFont implements PDVectorFont
     }
 
     /**
-     * Returns the font's UCS2 CMap, only present this font uses a predefined CMap.
+     * Returns the font's UCS2 CMap, only present if this font uses a predefined CMap.
      */
     public CMap getCMapUCS2()
     {
@@ -481,6 +481,15 @@ public class PDType0Font extends PDFont implements PDVectorFont
     public float getWidthFromFont(int code) throws IOException
     {
         return descendantFont.getWidthFromFont(code);
+    }
+
+    @Override
+    protected boolean isEncodedViaSubstitute()
+    {
+        // PDFBOX-6292: Identity CMap without ToUnicode: encode() returns the substitute's GIDs
+        return !isEmbedded() && descendantFont instanceof PDCIDFontType2 &&
+                cMap != null && cMap.getName() != null && cMap.getName().startsWith("Identity-") &&
+                !getCOSObject().containsKey(COSName.TO_UNICODE);
     }
 
     @Override

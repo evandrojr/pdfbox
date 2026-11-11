@@ -67,9 +67,11 @@ public class TestCOSString extends TestCOSBase
 
     /**
      * Test setForceHexForm() and setForceLiteralForm() - tests these two methods do enforce the
-     * different String output forms within PDF. 
+     * different String output forms within PDF.
+     * 
+     * @throws IOException
      */
-    public void testSetForceHexLiteralForm()
+    public void testSetForceHexLiteralForm() throws IOException
     {
         String inputString = "Test with a text and a few numbers 1, 2 and 3";
         String pdfHex = "<" + createHex(inputString) + ">";
@@ -90,38 +92,26 @@ public class TestCOSString extends TestCOSBase
      * @param expected the String expected when writePDF() is invoked
      * @param testSubj the test subject
      */
-    private void writePDFTests(String expected, COSString testSubj)
+    private void writePDFTests(String expected, COSString testSubj) throws IOException
     {
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-        try
-        {
-            COSWriter.writeString(testSubj, outStream);
-        }
-        catch (IOException e)
-        {
-            fail("IOException: " + e.getMessage());
-        }
+        COSWriter.writeString(testSubj, outStream);
         Assert.assertEquals(expected, outStream.toString());
     }
 
     /**
      * Test parseHex() - tests that the proper String is created from a hex string input.
+     * 
+     * @throws IOException
      */
-    public void testFromHex()
+    public void testFromHex() throws IOException
     {
         String expected = "Quick and simple test";
         String hexForm = createHex(expected);
-        try
-        {
-            COSString test1 = COSString.parseHex(hexForm);
-            writePDFTests("(" + expected + ")", test1);
-            COSString test2 = COSString.parseHex(createHex(ESC_CHAR_STRING));
-            writePDFTests("(" + ESC_CHAR_STRING_PDF_FORMAT + ")", test2);
-        }
-        catch (IOException e)
-        {
-            fail("IOException thrown: " + e.getMessage());
-        }
+        COSString test1 = COSString.parseHex(hexForm);
+        writePDFTests("(" + expected + ")", test1);
+        COSString test2 = COSString.parseHex(createHex(ESC_CHAR_STRING));
+        writePDFTests("(" + ESC_CHAR_STRING_PDF_FORMAT + ")", test2);
         try
         {
             COSString.parseHex(hexForm + "xx");
@@ -160,29 +150,24 @@ public class TestCOSString extends TestCOSBase
 
     /**
      * Test testGetString() - ensure getString() are returned in the correct format.
+     * 
+     * @throws IOException
      */
-    public void testGetString()
+    public void testGetString() throws IOException
     {
-        try
-        {
-            String testStr = "Test subject for getString()";
-            COSString test1 = new COSString(testStr);
-            Assert.assertEquals(testStr, test1.getString());
+        String testStr = "Test subject for getString()";
+        COSString test1 = new COSString(testStr);
+        Assert.assertEquals(testStr, test1.getString());
 
-            COSString hexStr = COSString.parseHex(createHex(testStr));
-            Assert.assertEquals(testStr, hexStr.getString());
+        COSString hexStr = COSString.parseHex(createHex(testStr));
+        Assert.assertEquals(testStr, hexStr.getString());
 
-            COSString escapedString = new COSString(ESC_CHAR_STRING);
-            Assert.assertEquals(ESC_CHAR_STRING, escapedString.getString());
+        COSString escapedString = new COSString(ESC_CHAR_STRING);
+        Assert.assertEquals(ESC_CHAR_STRING, escapedString.getString());
 
-            testStr = "Line1\nLine2\nLine3\n";
-            COSString lineFeedString = new COSString(testStr);
-            Assert.assertEquals(testStr, lineFeedString.getString());
-        }
-        catch (IOException e)
-        {
-            fail("IOException thrown: " + e.getMessage());
-        }
+        testStr = "Line1\nLine2\nLine3\n";
+        COSString lineFeedString = new COSString(testStr);
+        Assert.assertEquals(testStr, lineFeedString.getString());
     }
 
     /**
@@ -196,8 +181,10 @@ public class TestCOSString extends TestCOSBase
 
     /**
      * Tests writePDF() - tests that the string is in PDF format.
+     * 
+     * @throws IOException
      */
-    public void testWritePDF()
+    public void testWritePDF() throws IOException
     {
         // This has been tested quite thorougly above but do a couple tests anyway
         COSString testSubj = new COSString(ESC_CHAR_STRING);

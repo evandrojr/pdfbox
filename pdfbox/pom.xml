@@ -23,7 +23,7 @@
     <parent>
         <groupId>org.apache.pdfbox-serpro</groupId>
         <artifactId>pdfbox-parent</artifactId>
-        <version>2.0.36.1-SNAPSHOT</version>
+        <version>2.0.38.1-SNAPSHOT</version>
         <relativePath>../parent/pom.xml</relativePath>
     </parent>
 
@@ -37,9 +37,9 @@
     <inceptionYear>2002</inceptionYear>
 
     <scm>
-        <connection>scm:svn:https://svn.apache.org/repos/asf/pdfbox/tags/2.0.36/pdfbox</connection>
-        <developerConnection>scm:svn:https://svn.apache.org/repos/asf/pdfbox/tags/2.0.36/pdfbox</developerConnection>
-        <url>https://svn.apache.org/viewvc/pdfbox/tags/2.0.36/pdfbox</url>
+        <connection>scm:svn:https://svn.apache.org/repos/asf/pdfbox/branches/2.0/pdfbox</connection>
+        <developerConnection>scm:svn:https://svn.apache.org/repos/asf/pdfbox/branches/2.0/pdfbox</developerConnection>
+        <url>https://svn.apache.org/viewvc/pdfbox/branches/2.0/pdfbox</url>
     </scm>
 
     <properties>
@@ -62,14 +62,12 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk15to18</artifactId>
-            <version>${bouncycastle.version}</version>
             <scope>compile</scope>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk15to18</artifactId>
-            <version>${bouncycastle.version}</version>
             <scope>compile</scope>
             <optional>true</optional>
         </dependency>
@@ -113,6 +111,18 @@
             <version>${jai.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j2.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-jcl</artifactId>
+            <version>${log4j2.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -136,7 +146,7 @@
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Xmx768m</argLine>
+                    <argLine>-Xmx1g</argLine>
                     <excludes>
                         <exclude>org/apache/pdfbox/rendering/TestPDFToImage.java</exclude>
                     </excludes>
@@ -842,6 +852,212 @@
                             <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
                             <outputFileName>PDFBOX-6009.pdf</outputFileName>
                             <sha512>60e7b46f11a655083a57f4a627edf75bee477cd1ebfb06fbaefeb8ba16a01be37039cfd51c7c181a3ea368b53d22e327d480a7b0699c0edb2e06b4faaae7790f</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-6150</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13080392/test-form.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-6150.pdf</outputFileName>
+                            <sha512>da6c630d2683937bce60f70302176f16531b36300b69d2d8585c15819b7965bf6c0c2f6fe101743d66b3dbb70e7eb0383614b669878641a480b9ea1a6d02510f</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-6178</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13081297/form_empty.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-6178.pdf</outputFileName>
+                            <sha512>d39486af0614bd099167a6adaab833aed41a0ebec7b85b13b382a2fdb6fddbcaaea9ab26ed0a81b72822258c8dd66dd535fa5c76afd1e5a8b1bff7d81e890274</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-6178-1</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13081311/form_selected_ASCII_NUL_acrobat.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-6178-1.pdf</outputFileName>
+                            <sha512>83bc557e6f7d3e98de6e81168b2e2fb3def5025cc5fab1ddb3ef658505351c615253587f09b93503bb73a6225f3d3898be894e9d05dba8d464f4dd9c54514bc3</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-6207</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13082507/form_with_checkbox.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-6207.pdf</outputFileName>
+                            <sha512>3c8020c1114e2267fdc4e525eed04fd452c75eab4fb0c5d60340983d91af52aca330383a4430934de82e73ddfcd17eec55f1426bd0756b7d11510fadf1043cf9</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-6210</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://github.com/googlefonts/noto-cjk/raw/main/Sans/Variable/TTF/NotoSansCJKkr-VF.ttf</url>
+                            <outputDirectory>${project.build.directory}/fonts</outputDirectory>
+                            <sha512>a426c59e4e00dca438014ccb7d28263e76319060be9e49ff1237fdcb25d05d4a46553ed4612740f3101afc5dd7a98e9a87fda0b2c5a2b46c559b564f12f54035</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-6172</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13081021/NotoSansSC-Regular.otf</url>
+                            <outputDirectory>${project.build.directory}/fonts</outputDirectory>
+                            <sha512>2ee83beb6658792c6b963010462515ff1187aafe64930c1a7465dc26e86ab5236dc98cb006986e5fcd60876bedef7f00e4e1cb86bbf590bba000a00187af0ee3</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-6077-1</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13078553/example.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-6077-example.pdf</outputFileName>
+                            <sha512>f4faaa68062073ffdfd48119563f1e1a6eff6d9a063188dc2ec59ccc747277fcaa6139936cebf2f3f7b1b99b80ca13934fb4568658a169e0bf25bf4e748de101</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-6077-2</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13078557/PDFBOX-5842-reduced.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-5842-reduced.pdf</outputFileName>
+                            <sha512>c66b13230d343d6b0a2de81680f5d1ae7f8d92713acbc453ff36fe085831fa89127e0428d297e7494b87fc932ca8a721744db1fe79a41cc5c3cf7d631fc209fc</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-5403</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13041734/bad+rendering.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-5403-bad-rendering.pdf</outputFileName>
+                            <sha512>0d7160a4af04bf2f785bf4155f69876da4b7ff7a196e7eda1eb904c02c35aa03c31041d9339fda90322cb58bde16b87bae8460c617bfe5b8dc0670ddab102f62</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-5250</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13073765/PDFBOX-5250-pattern-reduced3.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-5250-pattern-reduced3.pdf</outputFileName>
+                            <sha512>fef1da8db49531a3bf017c6872b2032cac2d3c7e431f5529a80f87886b2d06455d086c9228ad35aee80d824ffb9e65e5ea302327b7feada001ede66f83199101</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-5960</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13074906/PDFJS-19527-reduced1.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-5960-reduced1.pdf</outputFileName>
+                            <sha512>cd6d92c643108cdcf2b4c6a4ae4cc5a15d848e3335f6c8a135a5438d691eb982d11cfd8f26d11839321e06a364126d9b0c9732b4a19785821b844fe0ec94d525</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-5657</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13062286/PDFJS-16782-SMaskInData.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-5657-PDFJS-16782-SMaskInData.pdf</outputFileName>
+                            <sha512>746c3b3d15e9865dd5ec902feda15f0b86ecd67bc3424f47261b1d9c38661f3fc56c693c2360e2a0d94bf9ca32dca3794a86889d453672622732430aed16a52c</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-5876</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13071244/jpeg2000.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-5876-jpeg2000.pdf</outputFileName>
+                            <sha512>5eb020282f3998c7673983625303fb7634a3ca2a2fc65efc7bd123241a7facae999610bbd38d8a6be8fc26752c7241d806d46252448ba600e2beb118f4567cf3</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-5079</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13018679/PDF2.0imagewithBPC.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-5079-PDF2.0imagewithBPC.pdf</outputFileName>
+                            <sha512>f3d0934c9d0babedd76431565bdb1cc1bf6d9f0a5ace7656a9ded53fb1e701dd0d12c784a58ae87098793f57ba5b98cbfb657e047e27d5464b26634511162264</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-5953</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13074663/test.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-5953-test.pdf</outputFileName>
+                            <sha512>022755d4abeaa60ed99b3252441aaa1b65daa8d5414348f6c4ae5c8e3dfdb7d2be5ea0705117b8bfbb88f13e79d168dcb1f3b2ff9d9c7be21ad987965ccfc562</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-6301</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13086155/octopdf-sample.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-6301-octopdf-sample.pdf</outputFileName>
+                            <sha512>96341bf96b4832c7d1611cf5e64ee95edd46904102ee480b74f62c3b9320c298de9bb06c7a7ee8bce9c235b625ba52bbb64aaf3240e9f4a63210277f6ff135cb</sha512>
                         </configuration>
                     </execution>
                 </executions>

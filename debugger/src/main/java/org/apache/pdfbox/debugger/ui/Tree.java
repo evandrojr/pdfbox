@@ -17,7 +17,6 @@
 
 package org.apache.pdfbox.debugger.ui;
 
-import java.awt.Component;
 import java.awt.Desktop;
 import java.awt.Point;
 import java.awt.Toolkit;
@@ -56,17 +55,21 @@ import org.apache.pdfbox.pdmodel.common.PDStream;
 public class Tree extends JTree
 {
     private final JPopupMenu treePopupMenu;
-    private final Object rootNode;
 
     /**
      * Constructor.
-     * @param parentComponent the main UI where the Tree resides.
      */
-    public Tree(Component parentComponent)
+    public Tree()
     {
         treePopupMenu = new JPopupMenu();
+    }
+
+    /**
+     * Initialization, to be called immediately after construction.
+     */
+    public void init()
+    {
         setComponentPopupMenu(treePopupMenu);
-        rootNode = getModel().getRoot();
         int treeRowHeight = Integer.parseInt(PDFDebugger.configuration.getProperty(
                                     "treeRowHeight", Integer.toString(getRowHeight())));
         setRowHeight(treeRowHeight);
@@ -154,7 +157,8 @@ public class Tree extends JTree
             public void actionPerformed(ActionEvent actionEvent)
             {
                 Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-                clipboard.setContents(new StringSelection(new TreeStatus(rootNode).getStringForPath(path)), null);
+                String pathString = new TreeStatus(getModel().getRoot()).getStringForPath(path);
+                clipboard.setContents(new StringSelection(pathString), null);
             }
         });
         return copyPathMenuItem;
@@ -178,9 +182,9 @@ public class Tree extends JTree
                     byte[] bytes = IOUtils.toByteArray(cosStream.createRawInputStream());
                     saveStream(bytes, null, null);
                 }
-                catch (IOException e)
+                catch (IOException ex)
                 {
-                    e.printStackTrace();
+                    new ErrorDialog(ex).setVisible(true);
                 }
             }
         });
@@ -273,9 +277,9 @@ public class Tree extends JTree
                     byte[] bytes = IOUtils.toByteArray(cosStream.createInputStream());
                     saveStream(bytes, fileFilter, extension);
                 }
-                catch (IOException e)
+                catch (IOException ex)
                 {
-                    e.printStackTrace();
+                    new ErrorDialog(ex).setVisible(true);
                 }
             }
         });
@@ -350,9 +354,9 @@ public class Tree extends JTree
                         }
                     }
                 }
-                catch (IOException e)
+                catch (IOException ex)
                 {
-                    e.printStackTrace();
+                    new ErrorDialog(ex).setVisible(true);
                 }
             }
         });
@@ -403,9 +407,9 @@ public class Tree extends JTree
                     InputStream data = stream.createInputStream(stopFilters);
                     saveStream(IOUtils.toByteArray(data), null, null);
                 }
-                catch (IOException e)
+                catch (IOException ex)
                 {
-                    e.printStackTrace();
+                    new ErrorDialog(ex).setVisible(true);
                 }
             }
         });

@@ -60,8 +60,47 @@ final class CCITTFaxFilter extends Filter
         // decompress data
         int k = decodeParms.getInt(COSName.K, 0);
         boolean encodedByteAlign = decodeParms.getBoolean(COSName.ENCODED_BYTE_ALIGN, false);
-        int arraySize = (cols + 7) / 8 * rows;
-        // TODO possible options??
+        if (cols <= 0 || rows <= 0)
+        {
+            throw new IOException("Invalid CCITT image dimensions: cols=" + cols + ", rows=" + rows);
+        }
+
+        long arraySizeLong = ((long) cols + 7) / 8 * rows;
+
+        // PDFBOX-6243: CCITTFaxDecoderStream allocates two int arrays: changesReferenceRow and changesCurrentRow 
+        long changesSize = ((long) cols + 2) * 4 * 2;
+
+        long maxBytes = 256 * 1024 * 1024L;
+        String sysProp = System.getProperty(Filter.SYSPROP_CCITTFAX_MAXBYTES);
+
+        if (sysProp != null)
+        {
+            try
+            {
+                long parsed = Long.parseLong(sysProp);
+                if (parsed > 0)
+                {
+                    maxBytes = parsed;
+                }
+                // else ignore zero/negative values
+            }
+            catch (NumberFormatException e)
+            {
+                // ignore invalid value, keep default
+            }
+        }
+
+        if (arraySizeLong + changesSize > maxBytes)
+        {
+            throw new IOException(
+                "CCITT decode buffer too large (bitmapSize: " + arraySizeLong + ", changesSize: " +
+                changesSize + ") for cols=" + cols +
+                ", rows=" + rows + "; max allowed=" + maxBytes +
+                "; increase " + Filter.SYSPROP_CCITTFAX_MAXBYTES + " to override"
+            );
+        }
+
+        int arraySize = (int) arraySizeLong;
         byte[] decompressed = new byte[arraySize];
         CCITTFaxDecoderStream s;
         int type;

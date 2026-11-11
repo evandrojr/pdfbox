@@ -17,32 +17,52 @@
 
 package org.apache.pdfbox.debugger.flagbitspane;
 
+import java.util.Arrays;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSString;
 import org.apache.pdfbox.pdmodel.font.PDPanose;
 import org.apache.pdfbox.pdmodel.font.PDPanoseClassification;
+import org.apache.pdfbox.util.Hex;
 
 /**
  * @author Khyrul Bashar
  * A class that provide Panose classification data
  */
-public class PanoseFlag extends Flag
+class PanoseFlag extends Flag
 {
+    private static final Log LOG = LogFactory.getLog(PanoseFlag.class);
 
     private final byte[] bytes;
-    private final COSString byteValue;
+    private static final String INVALID_VALUE = "invalid value";
 
     /**
      * Constructor.
      * @param dictionary COSDictionary instance. style dictionary that contains panose object.
      */
-    public PanoseFlag(COSDictionary dictionary)
+    PanoseFlag(COSDictionary dictionary)
     {
-        byteValue = (COSString)dictionary.getDictionaryObject(COSName.PANOSE);
-        bytes = getPanoseBytes(dictionary);
+        COSBase base = dictionary.getDictionaryObject(COSName.PANOSE);
+        if (base instanceof COSString)
+        {
+            byte[] tmp = ((COSString) base).getBytes();
+            if (tmp.length != PDPanose.LENGTH)
+            {
+                LOG.warn("Panose string length adjusted");
+            }
+            bytes = Arrays.copyOf(tmp, PDPanose.LENGTH);
+        }
+        else
+        {
+            LOG.error("Panose string missing");
+            bytes = new byte[PDPanose.LENGTH];
+        }
     }
-
 
     @Override
     String getFlagType()
@@ -53,7 +73,7 @@ public class PanoseFlag extends Flag
     @Override
     String getFlagValue()
     {
-        return "Panose byte :" + byteValue.toHexString();
+        return "Panose byte: " + Hex.getString(bytes);
     }
 
     @Override
@@ -94,29 +114,34 @@ public class PanoseFlag extends Flag
 
     private String getSerifStyleValue(int index)
     {
-        return new String[]{
-                "Any",
-                "No Fit",
-                "Cove",
-                "Obtuse Cove",
-                "Square Cove",
-                "Obtuse Square Cove",
-                "Square",
-                "Thin",
-                "Oval",
-                "Exaggerated",
-                "Triangle",
-                "Normal Sans",
-                "Obtuse Sans",
-                "Perpendicular Sans",
-                "Flared",
-                "Rounded"
-        }[index];
+        String[] values = new String[]{
+            "Any",
+            "No Fit",
+            "Cove",
+            "Obtuse Cove",
+            "Square Cove",
+            "Obtuse Square Cove",
+            "Square",
+            "Thin",
+            "Oval",
+            "Exaggerated",
+            "Triangle",
+            "Normal Sans",
+            "Obtuse Sans",
+            "Perpendicular Sans",
+            "Flared",
+            "Rounded"
+        };
+        if (index >= values.length)
+        {
+            return INVALID_VALUE;
+        }
+        return values[index];
     }
 
     private String getWeightValue(int index)
     {
-        return new String[]{
+        String[] values = new String[]{
                 "Any",
                 "No Fit",
                 "Very Light",
@@ -129,12 +154,17 @@ public class PanoseFlag extends Flag
                 "Heavy",
                 "Black",
                 "Extra Black"
-        }[index];
+        };
+        if (index >= values.length)
+        {
+            return INVALID_VALUE;
+        }
+        return values[index];
     }
 
     private String getProportionValue(int index)
     {
-        return new String[]{
+        String[] values = new String[]{
                 "Any",
                 "No fit",
                 "Old Style",
@@ -145,12 +175,17 @@ public class PanoseFlag extends Flag
                 "Very Extended",
                 "Very Condensed",
                 "Monospaced"
-        }[index];
+        };
+        if (index >= values.length)
+        {
+            return INVALID_VALUE;
+        }
+        return values[index];
     }
 
     private String getContrastValue(int index)
     {
-        return new String[]{
+        String[] values = new String[]{
                 "Any",
                 "No Fit",
                 "None",
@@ -161,12 +196,17 @@ public class PanoseFlag extends Flag
                 "Medium High",
                 "High",
                 "Very High"
-        }[index];
+        };
+        if (index >= values.length)
+        {
+            return INVALID_VALUE;
+        }
+        return values[index];
     }
 
     private String getStrokeVariationValue(int index)
     {
-        return new String[]{
+        String[] values = new String[]{
                 "Any",
                 "No Fit",
                 "No Variation",
@@ -178,12 +218,17 @@ public class PanoseFlag extends Flag
                 "Rapid/Horizontal",
                 "Instant/Vertical",
                 "Instant/Horizontal",
-        }[index];
+        };
+        if (index >= values.length)
+        {
+            return INVALID_VALUE;
+        }
+        return values[index];
     }
 
     private String getArmStyleValue(int index)
     {
-        return new String[]{
+        String[] values = new String[]{
                 "Any",
                 "No Fit",
                 "Straight Arms/Horizontal",
@@ -196,12 +241,17 @@ public class PanoseFlag extends Flag
                 "Non-Straight/Vertical",
                 "Non-Straight/Single Serif",
                 "Non-Straight/Double Serif",
-        }[index];
+        };
+        if (index >= values.length)
+        {
+            return INVALID_VALUE;
+        }
+        return values[index];
     }
 
     private String getLetterformValue(int index)
     {
-        return new String[]{
+        String[] values = new String[]{
                 "Any",
                 "No Fit",
                 "Normal/Contact",
@@ -218,12 +268,17 @@ public class PanoseFlag extends Flag
                 "Oblique/Rounded",
                 "Oblique/Off Center",
                 "Oblique/Square",
-        }[index];
+        };
+        if (index >= values.length)
+        {
+            return INVALID_VALUE;
+        }
+        return values[index];
     }
 
     private String getMidlineValue(int index)
     {
-        return new String[]{
+        String[] values = new String[]{
                 "Any",
                 "No Fit",
                 "Standard/Trimmed",
@@ -238,12 +293,17 @@ public class PanoseFlag extends Flag
                 "Low/Trimmed",
                 "Low/Pointed",
                 "Low/Serifed"
-        }[index];
+        };
+        if (index >= values.length)
+        {
+            return INVALID_VALUE;
+        }
+        return values[index];
     }
 
     private String getXHeightValue(int index)
     {
-        return new String[]{
+        String[] values = new String[]{
                 "Any",
                 "No Fit",
                 "Constant/Small",
@@ -252,12 +312,11 @@ public class PanoseFlag extends Flag
                 "Ducking/Small",
                 "Ducking/Standard",
                 "Ducking/Large",
-        }[index];
-    }
-
-    public final byte[] getPanoseBytes(COSDictionary style)
-    {
-        COSString panose = (COSString)style.getDictionaryObject(COSName.PANOSE);
-        return panose.getBytes();
+        };
+        if (index >= values.length)
+        {
+            return INVALID_VALUE;
+        }
+        return values[index];
     }
 }

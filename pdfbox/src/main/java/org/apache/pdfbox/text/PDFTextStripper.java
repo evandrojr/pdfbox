@@ -302,10 +302,7 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
 
         for (PDPage page : pages)
         {
-            if (page.hasContents())
-            {
-                processPage(page);
-            }
+            processPage(page);
             currentPageNo++;
         }
     }
@@ -385,8 +382,9 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
 
     private void fillBeadRectangles(PDPage page)
     {
-        beadRectangles = new ArrayList<PDRectangle>();
-        for (PDThreadBead bead : page.getThreadBeads())
+        List<PDThreadBead> threadBeads = page.getThreadBeads();
+        beadRectangles = new ArrayList<PDRectangle>(threadBeads.size());
+        for (PDThreadBead bead : threadBeads)
         {
             if (bead == null || bead.getRectangle() == null)
             {
@@ -1905,7 +1903,9 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
      * characters, the order of the characters in a word or words in a line may wrong, due to RTL and LTR marks and
      * characters!
      * 
-     * Based on http://www.nesterovsky-bros.com/weblog/2013/07/28/VisualToLogicalConversionInJava.aspx
+     Based on
+     * <a href="http://www.nesterovsky-bros.com/weblog/2013/07/28/VisualToLogicalConversionInJava.aspx">an
+     * article "Visual to logical conversion in Java"</a>.
      * 
      * @param word The word that shall be processed
      * @return new word with the correct direction of the containing characters
@@ -2179,7 +2179,7 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
 
         public boolean isWordSeparator()
         {
-            return textPosition == null;
+            return this == WORD_SEPARATOR;
         }
     }
 

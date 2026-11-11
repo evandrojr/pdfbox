@@ -32,6 +32,8 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.fontbox.ttf.OTFParser;
+import org.apache.fontbox.ttf.OpenTypeFont;
 import org.apache.fontbox.ttf.TTFParser;
 import org.apache.fontbox.ttf.TrueTypeCollection;
 import org.apache.fontbox.ttf.TrueTypeFont;
@@ -529,6 +531,44 @@ public class PDFontTest
         PDFTextStripper stripper = new PDFTextStripper();
         String text = stripper.getText(doc);
         Assert.assertEquals("\u0391 \u2126", text.trim());
+        doc.close();
+    }
+
+    // PDFBOX-6172: test that exception is thrown on otf font with CID and GID not identical.
+    @Test
+    public void testPDFBox6172() throws IOException
+    {
+        PDDocument document = new PDDocument();
+        InputStream is = new FileInputStream("target/fonts/NotoSansSC-Regular.otf");
+        OpenTypeFont otf = new OTFParser().parse(is);
+        try
+        {
+            PDType0Font.load(document, otf, false);
+        }
+        catch (IllegalStateException ex)
+        {
+            Assert.assertEquals("CID and GID not identical: CID 628 != GID 372, use a ttf font instead", ex.getMessage());
+            return;
+        }
+        finally
+        {
+            document.close();
+        }
+        Assert.fail("should have thrown IllegalStateException");
+    }
+
+    @Test
+    public void testPDFBox5960() throws IOException
+    {
+        PDDocument doc = PDDocument.load(new File("target/pdfs", "PDFBOX-5960-reduced1.pdf"));
+        PDPage page = doc.getPage(0);
+        PDFont font = page.getResources().getFont(COSName.getPDFName("F1"));
+        Assert.assertTrue(font instanceof PDTrueTypeFont);
+        PDTrueTypeFont ttf = (PDTrueTypeFont) font;
+        // code 71 ('G' in the content stream) is mapped by /Differences to "Ccedilla",
+        // which must be resolved by name (GID 90, the diameter symbol in this font),
+        // not through the symbolic code-based cmap (which wrongly yields GID 34, "G").
+        Assert.assertEquals(90, ttf.codeToGID(71));
         doc.close();
     }
 }

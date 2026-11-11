@@ -51,6 +51,24 @@ public abstract class Filter
     public static final String SYSPROP_DEFLATELEVEL = "org.apache.pdfbox.filter.deflatelevel";
 
     /**
+     * CCITTFax decode buffer size cap System Property. Sets the maximum number of bytes that
+     * CCITTFaxFilter is allowed to pre-allocate for a single image decode buffer. PDF-controlled
+     * /Columns and /Rows values are validated against this limit before allocation to prevent
+     * denial-of-service via crafted image dimensions. The default is 256 MB. To raise the cap for
+     * high-resolution legitimate documents, use
+     * {@code System.setProperty(Filter.SYSPROP_CCITTFAX_MAXBYTES, String.valueOf(512 * 1024 * 1024L));}
+     */
+    public static final String SYSPROP_CCITTFAX_MAXBYTES = "org.apache.pdfbox.filter.ccittmaxbytes";
+
+    /**
+     * PredictorOutputStream max rowLength property, obtained by computing
+     * {@code (columns * colors * bitsPerComponent + 7) / 8}. To raise the cap for
+     * high-resolution legitimate documents, use
+     * {@code System.setProperty(Filter.SYSPROP_CCITTFAX_MAXBYTES, String.valueOf(10_000_000));}
+     */
+    public static final String SYSPROP_PREDICTOR_MAX_ROW_LENGTH = "org.apache.pdfbox.filter.predictormaxrowlength";
+
+    /**
      * Constructor.
      */
     protected Filter()

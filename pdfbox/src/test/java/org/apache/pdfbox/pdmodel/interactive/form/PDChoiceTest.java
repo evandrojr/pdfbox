@@ -19,7 +19,10 @@ package org.apache.pdfbox.pdmodel.interactive.form;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,6 +32,7 @@ import org.apache.pdfbox.cos.COSString;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.internal.util.io.IOUtil;
 
 /**
  * Test for the PDChoice class.
@@ -145,5 +149,48 @@ public class PDChoiceTest
         assertEquals(options, choiceField.getOptions());
     }
 
-}
+    /*
+     * Set here the value of a choice field to a value with a display value that is different
+     * from the export value and check that the correct display value is used in the appearance stream.
+     * See PDFBOX-6150
+     */
+    @Test
+    public void PDFBox6150() throws IOException
+    {
+        PDDocument document = null;
+        File pdfFile = new File("target/pdfs/PDFBOX-6150.pdf");
 
+        assumeTrue(pdfFile.exists()); // Skip test if PDF not available
+
+        // Load document, set value, and save to memory
+        try
+        {
+            document = PDDocument.load(pdfFile);
+            PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
+            PDChoice field = (PDChoice) acroForm.getField("shipping_country");
+
+            field.setValue("DE");
+
+            assertEquals("The fields value should be set to DE", "DE", field.getValue().get(0));
+            
+            // Read the content of the normal appearance stream and check that it contains the display value for DE
+            // which is Deutschland
+            List<String> content = TestUtils.getStringsFromStream(field);
+            boolean hasContent = false;
+            for (String item : content)
+            {
+                System.out.println(item);
+                if ("Deutschland".equals(item))
+                {
+                    hasContent = true;
+                    break;
+                }
+            }
+            assertTrue("The content should contain the display value for DE which is Deutschland", hasContent);
+        }
+        finally
+        {
+            IOUtil.closeQuietly(document);
+        }
+    }
+}

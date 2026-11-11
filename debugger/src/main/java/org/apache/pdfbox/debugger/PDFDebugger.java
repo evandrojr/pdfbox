@@ -19,7 +19,6 @@ package org.apache.pdfbox.debugger;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Cursor;
-import java.awt.Dimension;
 import java.awt.FileDialog;
 import java.awt.Frame;
 import java.awt.Toolkit;
@@ -87,6 +86,7 @@ import org.apache.pdfbox.cos.COSNull;
 import org.apache.pdfbox.cos.COSObject;
 import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.cos.COSString;
+import org.apache.pdfbox.debugger.certificatepane.CertificatePane;
 import org.apache.pdfbox.debugger.colorpane.CSArrayBased;
 import org.apache.pdfbox.debugger.colorpane.CSDeviceN;
 import org.apache.pdfbox.debugger.colorpane.CSIndexed;
@@ -181,6 +181,7 @@ public class PDFDebugger extends JFrame
     private JMenuItem saveAsMenuItem;
     private JMenu recentFilesMenu;
     private JMenuItem printMenuItem;
+    private JCheckBoxMenuItem printBorder;
     private JMenuItem reopenMenuItem;
     
     // edit > find menu
@@ -230,9 +231,9 @@ public class PDFDebugger extends JFrame
                 configuration.load(is);
                 is.close();
             }
-            catch(IOException e)
+            catch (IOException ex)
             {
-                throw new RuntimeException(e);
+                new ErrorDialog(ex).setVisible(true);
             }
         }
     }
@@ -244,7 +245,8 @@ public class PDFDebugger extends JFrame
     {
         jSplitPane = new javax.swing.JSplitPane();
         JScrollPane jScrollPaneLeft = new JScrollPane();
-        tree = new Tree(this);
+        tree = new Tree();
+        tree.init();
         jScrollPaneRight = new JScrollPane();
         jTextPane = new javax.swing.JTextPane();
         
@@ -295,18 +297,14 @@ public class PDFDebugger extends JFrame
         documentScroller.setViewportView(documentPanel);
 
         statusPane = new TreeStatusPane(tree);
-        statusPane.getPanel().setBorder(new BevelBorder(BevelBorder.RAISED));
-        Dimension preferredTreePathSize = statusPane.getPanel().getPreferredSize();
-        int treePathHeight = (int) Math.round(preferredTreePathSize.getHeight());
-        treePathHeight = Integer.parseInt(
-                configuration.getProperty("treePathHeight", Integer.toString(treePathHeight)));
-        preferredTreePathSize.height = treePathHeight;
-        statusPane.getPanel().setPreferredSize(preferredTreePathSize);
+        statusPane.init();
+
         getContentPane().add(statusPane.getPanel(), BorderLayout.PAGE_START);
 
         getContentPane().add(jSplitPane, BorderLayout.CENTER);
 
         statusBar = new ReaderBottomPanel();
+        statusBar.init();
         getContentPane().add(statusBar, BorderLayout.SOUTH);
 
         // create menus
@@ -376,9 +374,9 @@ public class PDFDebugger extends JFrame
                 osxQuit.setAccessible(true);
                 OSXAdapter.setQuitHandler(this, osxQuit);
             }
-            catch (NoSuchMethodException e)
+            catch (NoSuchMethodException ex)
             {
-                throw new RuntimeException(e);
+                new ErrorDialog(ex).setVisible(true);
             }
         }
     }
@@ -416,9 +414,9 @@ public class PDFDebugger extends JFrame
                 {
                     readPDFurl(urlString, "");
                 }
-                catch (IOException e)
+                catch (IOException ex)
                 {
-                    throw new RuntimeException(e);
+                    new ErrorDialog(ex).setVisible(true);
                 }
             }
         });
@@ -484,6 +482,10 @@ public class PDFDebugger extends JFrame
         fileMenu.addSeparator();
         fileMenu.add(printMenuItem);
         fileMenu.add(PrintDpiMenu.getInstance().getMenu());
+        
+        printBorder = new JCheckBoxMenuItem("Print border");
+        printBorder.setEnabled(true);
+        fileMenu.add(printBorder);
 
         if (!IS_MAC_OS)
         {
@@ -779,16 +781,33 @@ public class PDFDebugger extends JFrame
                     return;
                 }
                 
-                if (isSpecialColorSpace(selectedNode) || isOtherColorSpace(selectedNode))
+                if (isArrayColorSpace(selectedNode))
                 {
                     showColorPane(selectedNode);
                     return;
                 }
-                if (path.getParentPath() != null
-                        && isFlagNode(selectedNode, path.getParentPath().getLastPathComponent()))
+                Object lastPathComponent = null;
+                if (path.getParentPath() != null)
+                {
+                    lastPathComponent = path.getParentPath().getLastPathComponent();
+                }
+                if (lastPathComponent != null
+                        && isFlagNode(selectedNode, lastPathComponent))
                 {
                     Object parentNode = path.getParentPath().getLastPathComponent();
                     showFlagPane(parentNode, selectedNode);
+                    return;
+                }
+                if (lastPathComponent != null &&
+                    isCertificateStream(selectedNode, lastPathComponent))
+                {
+                    showCertificatePane(selectedNode);
+                    return;
+                }
+                if (lastPathComponent != null &&
+                    isCertificateString(selectedNode, lastPathComponent))
+                {
+                    showCertificatePane(selectedNode);
                     return;
                 }
                 if (isStream(selectedNode))
@@ -796,8 +815,7 @@ public class PDFDebugger extends JFrame
                     showStream((COSStream) getUnderneathObject(selectedNode), path);
                     return;
                 }
-                if (path.getParentPath() != null &&
-                    isSignature(selectedNode, path.getParentPath().getLastPathComponent()))
+                if (lastPathComponent != null && isSignature(selectedNode, lastPathComponent))
                 {
                     showSignaturePane(selectedNode);
                     return;
@@ -821,8 +839,7 @@ public class PDFDebugger extends JFrame
             }
             catch (Exception e)
             {
-                e.printStackTrace();
-                throw new RuntimeException(e);
+                LOG.error(e.getMessage(), e);
             }
         }
     }
@@ -841,53 +858,66 @@ public class PDFDebugger extends JFrame
         if (selectedNode instanceof MapEntry)
         {
             MapEntry entry = (MapEntry) selectedNode;
-            if (entry.getKey().equals(COSName.CONTENTS) &&
-                    parentNode instanceof MapEntry)
+            if (COSName.CONTENTS.equals(entry.getKey()) && parentNode instanceof MapEntry)
+            {
+                return COSName.V.equals(((MapEntry) parentNode).getKey());
+            }
+        }
+        return false;
+    }
+
+    private void showCertificatePane(Object selectedNode)
+    {
+        COSBase base = getUnderneathObject(selectedNode);
+        if (base instanceof COSStream || base instanceof COSString)
+        {
+            replaceRightComponent(new CertificatePane(base).getPane());
+        }
+    }
+
+    private boolean isCertificateStream(Object selectedNode, Object parentNode)
+    {
+        if (selectedNode instanceof ArrayEntry)
+        {
+            ArrayEntry entry = (ArrayEntry) selectedNode;
+            if (entry.getValue() instanceof COSStream && parentNode instanceof MapEntry)
+            {
+                COSName key = ((MapEntry) parentNode).getKey();
+                return COSName.CERT.equals(key) || COSName.CERTS.equals(key);
+            }
+        }
+        return false;
+    }
+
+    private boolean isCertificateString(Object selectedNode, Object parentNode)
+    {
+        // adbe.x509.rsa_sha1 signature, eg. in PDFBOX-2693
+        if (selectedNode instanceof MapEntry)
+        {
+            MapEntry entry = (MapEntry) selectedNode;
+            if (COSName.CERT.equals(entry.getKey()) && parentNode instanceof MapEntry)
             {
                 MapEntry mapEntry = (MapEntry) parentNode;
-                COSDictionary sigDict;
                 if (mapEntry.getValue() instanceof COSDictionary)
                 {
-                    sigDict = (COSDictionary)mapEntry.getValue();
-                    COSName type = sigDict.getCOSName(COSName.TYPE);
-                    if (type != null && type.equals(COSName.SIG))
-                    {
-                        LOG.info("Found signature contents entry");
-                        return true;
-                    }
+                    COSDictionary sigDict = (COSDictionary) mapEntry.getValue();
+                    return COSName.SIG.equals(sigDict.getCOSName(COSName.TYPE));
                 }
             }
         }
         return false;
     }
 
-    private boolean isSpecialColorSpace(Object selectedNode)
+    private boolean isArrayColorSpace(Object selectedNode)
     {
-        selectedNode = getUnderneathObject(selectedNode);
-
-        if (selectedNode instanceof COSArray && ((COSArray) selectedNode).size() > 0)
+        COSBase underneathObject = getUnderneathObject(selectedNode);
+        if (underneathObject instanceof COSArray && ((COSArray) underneathObject).size() > 0)
         {
-            COSBase arrayEntry = ((COSArray)selectedNode).get(0);
+            COSBase arrayEntry = ((COSArray) underneathObject).get(0);
             if (arrayEntry instanceof COSName)
             {
                 COSName name = (COSName) arrayEntry;
-                return SPECIALCOLORSPACES.contains(name);
-            }
-        }
-        return false;
-    }
-
-    private boolean isOtherColorSpace(Object selectedNode)
-    {
-        selectedNode = getUnderneathObject(selectedNode);
-
-        if (selectedNode instanceof COSArray && ((COSArray) selectedNode).size() > 0)
-        {
-            COSBase arrayEntry = ((COSArray)selectedNode).get(0);
-            if (arrayEntry instanceof COSName)
-            {
-                COSName name = (COSName) arrayEntry;
-                return OTHERCOLORSPACES.contains(name);
+                return SPECIALCOLORSPACES.contains(name) || OTHERCOLORSPACES.contains(name);
             }
         }
         return false;
@@ -895,20 +925,12 @@ public class PDFDebugger extends JFrame
 
     private boolean isPage(Object selectedNode)
     {
-        selectedNode = getUnderneathObject(selectedNode);
-
-        if (selectedNode instanceof COSDictionary)
+        COSBase base = getUnderneathObject(selectedNode);
+        if (base instanceof COSDictionary)
         {
-            COSDictionary dict = (COSDictionary) selectedNode;
+            COSDictionary dict = (COSDictionary) base;
             COSBase typeItem = dict.getItem(COSName.TYPE);
-            if (COSName.PAGE.equals(typeItem))
-            {
-                return true;
-            }
-        }
-        else if (selectedNode instanceof PageEntry)
-        {
-            return true;
+            return COSName.PAGE.equals(typeItem);
         }
         return false;
     }
@@ -1032,6 +1054,7 @@ public class PDFDebugger extends JFrame
         if (COSName.PAGE.equals(typeItem))
         {
             PagePane pagePane = new PagePane(document, page, statusBar.getStatusLabel());
+            pagePane.init();
             replaceRightComponent(new JScrollPane(pagePane.getPanel()));
         }
     }
@@ -1100,6 +1123,7 @@ public class PDFDebugger extends JFrame
             resourcesDic = (COSDictionary) getUnderneathObject(resourcesObj);
         }
         StreamPane streamPane = new StreamPane(stream, isContentStream, isThumb, resourcesDic);
+        streamPane.init();
         replaceRightComponent(streamPane.getPanel());
     }
 
@@ -1169,26 +1193,26 @@ public class PDFDebugger extends JFrame
         return null;
     }
 
-    private Object getUnderneathObject(Object selectedNode)
+    private COSBase getUnderneathObject(Object selectedNode)
     {
         if (selectedNode instanceof MapEntry)
         {
-            selectedNode = ((MapEntry) selectedNode).getValue();
+            return ((MapEntry) selectedNode).getValue();
         }
         else if (selectedNode instanceof ArrayEntry)
         {
-            selectedNode = ((ArrayEntry) selectedNode).getValue();
+            return ((ArrayEntry) selectedNode).getValue();
         }
         else if (selectedNode instanceof PageEntry)
         {
-            selectedNode = ((PageEntry) selectedNode).getDict();
+            return ((PageEntry) selectedNode).getDict();
         }
 
         if (selectedNode instanceof COSObject)
         {
-            selectedNode = ((COSObject) selectedNode).getObject();
+            return ((COSObject) selectedNode).getObject();
         }
-        return selectedNode;
+        return null;
     }
 
     private String convertToString( Object selectedNode )
@@ -1237,9 +1261,9 @@ public class PDFDebugger extends JFrame
                 in = stream.createInputStream();
                 data = new String(IOUtils.toByteArray(in));
             }
-            catch (IOException e)
+            catch (IOException ex)
             {
-                throw new RuntimeException(e);
+                new ErrorDialog(ex).setVisible(true);
             }
             finally
             {
@@ -1259,23 +1283,12 @@ public class PDFDebugger extends JFrame
 
     private void exitMenuItemActionPerformed(ActionEvent ignored)
     {
-        if( document != null )
+        IOUtils.closeQuietly(document);
+        if (currentFilePath != null && !currentFilePath.startsWith("http"))
         {
-            try
-            {
-                document.close();
-                if (!currentFilePath.startsWith("http"))
-                {
-                    recentFiles.addFile(currentFilePath);
-                }
-                recentFiles.close();
-            }
-            catch( IOException e )
-            {
-                // no dialogbox, don't interfere with exit wish
-                e.printStackTrace();
-            }
+            recentFiles.addFile(currentFilePath);
         }
+        recentFiles.close();
         windowPrefs.setExtendedState(getExtendedState());
         this.setExtendedState(Frame.NORMAL);
         windowPrefs.setBounds(getBounds());
@@ -1309,7 +1322,9 @@ public class PDFDebugger extends JFrame
         try
         {
             PrinterJob job = PrinterJob.getPrinterJob();
-            job.setPageable(new PDFPageable(document, Orientation.AUTO, false, PrintDpiMenu.getDpiSelection()));
+            PDFPageable pageable = new PDFPageable(document, Orientation.AUTO, printBorder.isSelected(), PrintDpiMenu.getDpiSelection());
+            pageable.setSubsamplingAllowed(PDFDebugger.allowSubsampling.isSelected());
+            job.setPageable(pageable);
             PrintRequestAttributeSet pras = new HashPrintRequestAttributeSet();
             PDViewerPreferences vp = document.getDocumentCatalog().getViewerPreferences();
             if (vp != null && vp.getDuplex() != null)
@@ -1623,9 +1638,9 @@ public class PDFDebugger extends JFrame
                 {
                     readPDFFile(filePath, "");
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    throw new RuntimeException(e);
+                    new ErrorDialog(ex).setVisible(true);
                 }
             }
         };

@@ -131,14 +131,13 @@ public class PDVisibleSigBuilder implements PDFTemplateBuilder
     public void createAcroFormDictionary(PDAcroForm acroForm, PDSignatureField signatureField)
             throws IOException
     {
-        @SuppressWarnings("unchecked")
         List<PDField> acroFormFields = acroForm.getFields();
         COSDictionary acroFormDict = acroForm.getCOSObject();
         acroForm.setSignaturesExist(true);
         acroForm.setAppendOnly(true);
         acroFormDict.setDirect(true);
         acroFormFields.add(signatureField);
-        acroForm.setDefaultAppearance("/sylfaen 0 Tf 0 g");
+        acroForm.setDefaultAppearance("/Helv 0 Tf 0 g");
         pdfStructure.setAcroFormFields(acroFormFields);
         pdfStructure.setAcroFormDictionary(acroFormDict);
         LOG.info("AcroForm dictionary has been created");

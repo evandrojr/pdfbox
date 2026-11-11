@@ -270,13 +270,26 @@ public class PDSeparation extends PDSpecialColorSpace
     }
 
     /**
+     * Returns the tint transform function.
+     * @return the tint transform function
+     */
+    PDFunction getTintTransform()
+    {
+        return tintTransform;
+    }
+
+    /**
      * Returns the colorant name.
      * @return the name of the colorant
      */
     public String getColorantName()
     {
-        COSName name = (COSName)array.getObject(COLORANT_NAMES);
-        return name.getName();
+        COSBase base = array.getObject(COLORANT_NAMES);
+        if (base instanceof COSName)
+        {
+            return ((COSName) base).getName();
+        }
+        return null;
     }
 
     /**

@@ -364,7 +364,9 @@ public final class ShowSignature
             throws CertificateException, CMSException, IOException, OperatorCreationException,
             TSPException, NoSuchAlgorithmException, CertificateVerificationException
     {
-        TimeStampToken timeStampToken = new TimeStampToken(new CMSSignedData(contents));
+        ByteArrayInputStream certStream = new ByteArrayInputStream(contents);
+        TimeStampToken timeStampToken = new TimeStampToken(new CMSSignedData(certStream));
+        certStream.reset();
         TimeStampTokenInfo timeStampInfo = timeStampToken.getTimeStampInfo();
         System.out.println("Time stamp gen time: " + timeStampInfo.getGenTime());
         if (timeStampInfo.getTsa() != null)
@@ -373,7 +375,6 @@ public final class ShowSignature
         }
         
         CertificateFactory factory = CertificateFactory.getInstance("X.509");
-        ByteArrayInputStream certStream = new ByteArrayInputStream(contents);
         Collection<? extends Certificate> certs = factory.generateCertificates(certStream);
         System.out.println("certs=" + certs);
         
@@ -417,7 +418,7 @@ public final class ShowSignature
         // http://stackoverflow.com/a/26702631/535646
         // http://stackoverflow.com/a/9261365/535646
         CMSProcessable signedContent = new CMSProcessableByteArray(byteArray);
-        CMSSignedData signedData = new CMSSignedData(signedContent, contents);
+        CMSSignedData signedData = new CMSSignedData(signedContent, new ByteArrayInputStream(contents));
         @SuppressWarnings("unchecked")
         Store<X509CertificateHolder> certificatesStore = signedData.getCertificates();
         if (certificatesStore.getMatches(null).isEmpty())
@@ -453,11 +454,7 @@ public final class ShowSignature
             // https://www.quovadisglobal.com/~/media/Files/Repository/QV_RCA1_RCA3_CPCPS_V4_11.ashx
             // also 021496.pdf and 036351.pdf from digitalcorpora
             SigUtils.validateTimestampToken(timeStampToken);
-            @SuppressWarnings("unchecked") // TimeStampToken.getSID() is untyped
-            Collection<X509CertificateHolder> tstMatches =
-                timeStampToken.getCertificates().getMatches(timeStampToken.getSID());
-            X509CertificateHolder tstCertHolder = tstMatches.iterator().next();
-            X509Certificate certFromTimeStamp = new JcaX509CertificateConverter().getCertificate(tstCertHolder);
+            X509Certificate certFromTimeStamp = SigUtils.getCertificateFromTimeStampToken(timeStampToken);
             // merge both stores using a set to remove duplicates
             HashSet<X509CertificateHolder> certificateHolderSet = new HashSet<X509CertificateHolder>();
             certificateHolderSet.addAll(certificatesStore.getMatches(null));
@@ -529,7 +526,7 @@ public final class ShowSignature
         if (signerInformation.verify(new JcaSimpleSignerInfoVerifierBuilder().
                 setProvider(SecurityProvider.getProvider()).build(certFromSignedData)))
         {
-            System.out.println("Signature verified");
+            System.out.println(certFromSignedData.getSigAlgName() + " signature verified");
         }
         else
         {
@@ -538,7 +535,7 @@ public final class ShowSignature
 
         if (CertificateVerifier.isSelfSigned(certFromSignedData))
         {
-            System.err.println("Certificate is self-signed, LOL!");
+            System.err.println("Certificate for '" + certFromSignedData.getSubjectX500Principal().getName() + "' is self-signed, LOL!");
         }
         else
         {

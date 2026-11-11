@@ -22,7 +22,6 @@
 package org.apache.pdfbox.preflight.utils;
 
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,135 +45,93 @@ public class TestCOSUtils
 {
 
     @Test
-    public void testIsInteger()
+    public void testIsInteger() throws IOException
     {
-        try
-        {
-            COSObject co = new COSObject(COSInteger.get(10));
-            co.setGenerationNumber(0);
-            co.setObjectNumber(10);
+        COSObject co = new COSObject(COSInteger.get(10));
+        co.setGenerationNumber(0);
+        co.setObjectNumber(10);
 
-            assertFalse(COSUtils.isInteger(co, new IOCOSDocument()));
+        assertFalse(COSUtils.isInteger(co, new IOCOSDocument()));
 
-            COSDocument doc = new COSDocument();
-            addToXref(doc, new COSObjectKey(co), 1000);
-            COSUtils.isInteger(co, doc);
-            doc.close();
-        }
-        catch (IOException e)
-        {
-            fail(e.getMessage());
-        }
+        COSDocument doc = new COSDocument();
+        addToXref(doc, new COSObjectKey(co), 1000);
+        COSUtils.isInteger(co, doc);
+        doc.close();
     }
 
     @Test
-    public void testIsFloat()
+    public void testIsFloat() throws IOException
     {
-        try
-        {
-            COSObject co = new COSObject(new COSFloat(10.0f));
-            co.setGenerationNumber(0);
-            co.setObjectNumber(10);
+        COSObject co = new COSObject(new COSFloat(10.0f));
+        co.setGenerationNumber(0);
+        co.setObjectNumber(10);
 
-            assertFalse(COSUtils.isFloat(co, new IOCOSDocument()));
+        assertFalse(COSUtils.isFloat(co, new IOCOSDocument()));
 
-            COSDocument doc = new COSDocument();
-            addToXref(doc, new COSObjectKey(co), 1000);
-            COSUtils.isFloat(co, doc);
-            doc.close();
-        }
-        catch (IOException e)
-        {
-            fail(e.getMessage());
-        }
+        COSDocument doc = new COSDocument();
+        addToXref(doc, new COSObjectKey(co), 1000);
+        COSUtils.isFloat(co, doc);
+        doc.close();
     }
 
     @Test
-    public void testIsString()
+    public void testIsString() throws IOException
     {
-        try
-        {
-            COSObject co = new COSObject(new COSString(""));
-            co.setGenerationNumber(0);
-            co.setObjectNumber(10);
+        COSObject co = new COSObject(new COSString(""));
+        co.setGenerationNumber(0);
+        co.setObjectNumber(10);
 
-            assertFalse(COSUtils.isString(co, new IOCOSDocument()));
+        assertFalse(COSUtils.isString(co, new IOCOSDocument()));
 
-            COSDocument doc = new COSDocument();
-            addToXref(doc, new COSObjectKey(co), 1000);
-            COSUtils.isString(co, doc);
-            doc.close();
-        }
-        catch (IOException e)
-        {
-            fail(e.getMessage());
-        }
+        COSDocument doc = new COSDocument();
+        addToXref(doc, new COSObjectKey(co), 1000);
+        COSUtils.isString(co, doc);
+        doc.close();
     }
 
     @Test
-    public void testIsStream()
+    public void testIsStream() throws IOException
     {
-        try
-        {
-            COSObject co = new COSObject(new COSStream());
-            co.setGenerationNumber(0);
-            co.setObjectNumber(10);
+        COSObject co = new COSObject(new COSStream());
+        co.setGenerationNumber(0);
+        co.setObjectNumber(10);
 
-            assertFalse(COSUtils.isStream(co, new IOCOSDocument()));
+        assertFalse(COSUtils.isStream(co, new IOCOSDocument()));
 
-            COSDocument doc = new COSDocument();
-            addToXref(doc, new COSObjectKey(co), 1000);
-            COSUtils.isStream(co, doc);
-            doc.close();
-        }
-        catch (IOException e)
-        {
-            fail(e.getMessage());
-        }
+        COSDocument doc = new COSDocument();
+        addToXref(doc, new COSObjectKey(co), 1000);
+        COSUtils.isStream(co, doc);
+        doc.close();
     }
 
     @Test
-    public void testIsDictionary()
+    public void testIsDictionary() throws IOException
     {
-        try
-        {
-            COSObject co = new COSObject(new COSDictionary());
-            co.setGenerationNumber(0);
-            co.setObjectNumber(10);
+        COSObject co = new COSObject(new COSDictionary());
+        co.setGenerationNumber(0);
+        co.setObjectNumber(10);
 
-            assertFalse(COSUtils.isDictionary(co, new IOCOSDocument()));
+        assertFalse(COSUtils.isDictionary(co, new IOCOSDocument()));
 
-            COSDocument doc = new COSDocument();
-            addToXref(doc, new COSObjectKey(co), 1000);
-            COSUtils.isDictionary(co, doc);
-            doc.close();
-        }
-        catch (IOException e)
-        {
-            fail(e.getMessage());
-        }
+        COSDocument doc = new COSDocument();
+        addToXref(doc, new COSObjectKey(co), 1000);
+        COSUtils.isDictionary(co, doc);
+        doc.close();
     }
 
     @Test
-    public void testIsArray()
+    public void testIsArray() throws IOException
     {
-        try
-        {
-            COSObject co = new COSObject(new COSArray());
-            co.setGenerationNumber(0);
-            co.setObjectNumber(10);
+        COSObject co = new COSObject(new COSArray());
+        co.setGenerationNumber(0);
+        co.setObjectNumber(10);
 
-            assertFalse(COSUtils.isArray(co, new IOCOSDocument()));
+        assertFalse(COSUtils.isArray(co, new IOCOSDocument()));
 
-            COSDocument doc = new COSDocument();
-            addToXref(doc, new COSObjectKey(co), 1000);
-            COSUtils.isArray(co, doc);
-            doc.close();
-        }
-        catch (IOException e)
-        {
-            fail(e.getMessage());
-        }
+        COSDocument doc = new COSDocument();
+        addToXref(doc, new COSObjectKey(co), 1000);
+        COSUtils.isArray(co, doc);
+        doc.close();
     }
 
     @Test
@@ -190,16 +147,9 @@ public class TestCOSUtils
     }
 
     @Test
-    public void testCloseCOSDocumentIO()
+    public void testCloseCOSDocumentIO() throws IOException
     {
-        try
-        {
-            COSUtils.closeDocumentQuietly(new IOCOSDocument());
-        }
-        catch (IOException e)
-        {
-            fail(e.getMessage());
-        }
+        COSUtils.closeDocumentQuietly(new IOCOSDocument());
     }
 
     protected void addToXref(COSDocument doc, COSObjectKey key, long value)
@@ -217,7 +167,6 @@ public class TestCOSUtils
 
         IOCOSDocument() throws IOException
         {
-            super();
         }
 
         IOCOSDocument(File scratchDir) throws IOException

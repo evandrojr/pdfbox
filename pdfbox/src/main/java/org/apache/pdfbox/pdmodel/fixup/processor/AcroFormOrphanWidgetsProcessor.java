@@ -19,8 +19,10 @@ package org.apache.pdfbox.pdmodel.fixup.processor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -191,8 +193,14 @@ public class AcroFormOrphanWidgetsProcessor extends AbstractProcessor
      */
     private PDField resolveNonRootField(PDAcroForm acroForm, COSDictionary parent, Map<String, PDField> nonTerminalFieldsMap)
     {
+        Set<COSDictionary> visited = new HashSet<COSDictionary>();
         while (parent.containsKey(COSName.PARENT))
         {
+            if (!visited.add(parent))
+            {
+                LOG.warn("Field ignored: " + parent);
+                return null; // Cycle detected
+            }
             parent = parent.getCOSDictionary(COSName.PARENT);
             if (parent == null)
             {
@@ -226,6 +234,10 @@ public class AcroFormOrphanWidgetsProcessor extends AbstractProcessor
     private void ensureFontResources(PDResources defaultResources, PDVariableText field)
     {
         String daString = field.getDefaultAppearance();
+        if (daString == null)
+        {
+            return;
+        }
         if (daString.startsWith("/") && daString.length() > 1)
         {
             COSName fontName = COSName.getPDFName(daString.substring(1, daString.indexOf(" ")));

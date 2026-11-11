@@ -696,10 +696,17 @@ public class PDPage implements COSObjectable, PDContentStream
             {
                 continue;
             }
-            PDAnnotation createdAnnotation = PDAnnotation.createAnnotation(item);
-            if (annotationFilter.accept(createdAnnotation))
+            try
             {
-                actuals.add(createdAnnotation);
+                PDAnnotation createdAnnotation = PDAnnotation.createAnnotation(item);
+                if (annotationFilter.accept(createdAnnotation))
+                {
+                    actuals.add(createdAnnotation);
+                }
+            }
+            catch (IOException ex)
+            {
+                LOG.error(ex.getMessage(), ex);
             }
         }
         return new COSArrayList<PDAnnotation>(actuals, annots);
@@ -754,7 +761,7 @@ public class PDPage implements COSObjectable, PDContentStream
             return null;
         }
         COSArray array = (COSArray) base;
-        List<PDViewportDictionary> viewports = new ArrayList<PDViewportDictionary>();
+        List<PDViewportDictionary> viewports = new ArrayList<PDViewportDictionary>(array.size());
         for (int i = 0; i < array.size(); ++i)
         {
             COSBase base2 = array.getObject(i);

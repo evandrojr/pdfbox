@@ -19,11 +19,13 @@ package org.apache.pdfbox.examples.signature;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
@@ -32,6 +34,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.pdfbox.cos.COSArray;
@@ -45,6 +48,7 @@ import org.apache.pdfbox.examples.util.ConnectedInputStream;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.SecurityProvider;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+
 import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
@@ -61,6 +65,7 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.tsp.TSPException;
 import org.bouncycastle.tsp.TimeStampToken;
 import org.bouncycastle.util.Store;
+import org.bouncycastle.util.StoreException;
 
 /**
  * Utility class for the signature / timestamp examples.
@@ -70,6 +75,36 @@ import org.bouncycastle.util.Store;
 public class SigUtils
 {
     private static final Log LOG = LogFactory.getLog(SigUtils.class);
+
+    // Certificates / CRLs / LDAP needed for our unit tests; add yours
+    // or create your own logic in checkAccess()
+    private static final Set<String> ALLOW_URL_SET = new HashSet<String>(Arrays.asList(
+                 "http://www.pki.admin.ch/aia/RegularCA01.crt",
+                   "http://www.pki.admin.ch/aia/RootCAII.crt",
+                   "http://www.pki.admin.ch/aia/RootCAIV.crt",
+                   "http://www.pki.admin.ch/crl/RegularCA01.crl",
+                   "http://www.pki.admin.ch/crl/RootCAII.crl",
+                   "http://www.pki.admin.ch/crl/RootCAIV.crl",
+                   "http://www.pki.admin.ch/aia/RegulatedCA02.crt",
+                   "http://www.pki.admin.ch/aia/ocsp",
+                   "http://www.pki.admin.ch/crl/RegulatedCA02.crl",
+                   "http://repository.certum.pl/ctnca2.cer",
+                   "http://repository.certum.pl/ctnca.cer",
+                   "http://subca.repository.certum.pl/ctsca2021.cer",
+                   "http://crl.geotrust.com/crls/adobeca1.crl",
+                   "http://crl.adobe.com/cds.crl",
+                   "http://subca.crl.certum.pl/ctsca2021.crl",
+                   "http://subca.ocsp-certum.com",
+                   "http://crl.certum.pl/ctnca2.crl",
+                   "http://www.freetsa.org/tsa.crt",
+                   "http://www.freetsa.org:2560",
+                   "http://www.freetsa.org/crl/root_ca.crl",
+                   "http://www.gemboxsoftware.com/test/pki/cert/GemBoxCA.crt",
+                   "http://www.gemboxsoftware.com/test/pki/cert/GemBoxRSA.crt",
+                   "http://www.ca.gov.si/crt/si-trust-root.crt",
+                   "ldap://x500.gov.si/cn=SI-TRUST%20Root,oi=VATSI-17659957,o=Republika%20Slovenija,c=SI?certificateRevocationList"));
+    private static final int CONNECT_TIMEOUT_MS = 10000; 
+    private static final int READ_TIMEOUT_MS = 20000;
 
     private SigUtils()
     {
@@ -87,44 +122,52 @@ public class SigUtils
      */
     public static int getMDPPermission(PDDocument doc)
     {
-        COSBase base = doc.getDocumentCatalog().getCOSObject().getDictionaryObject(COSName.PERMS);
-        if (base instanceof COSDictionary)
+        COSDictionary permsDict = doc.getDocumentCatalog().getCOSObject()
+                .getCOSDictionary(COSName.PERMS);
+        if (permsDict == null)
         {
-            COSDictionary permsDict = (COSDictionary) base;
-            base = permsDict.getDictionaryObject(COSName.DOCMDP);
-            if (base instanceof COSDictionary)
+            return 0;
+        }
+        COSDictionary signatureDict = permsDict.getCOSDictionary(COSName.DOCMDP);
+        if (signatureDict == null)
+        {
+            return 0;
+        }
+        COSArray refArray = signatureDict.getCOSArray(COSName.REFERENCE);
+        if (refArray == null)
+        {
+            return 0;
+        }
+
+        for (int i = 0; i < refArray.size(); ++i)
+        {
+            COSDictionary transformDict = getDocMdpTransformParams(refArray.getObject(i));
+            if (transformDict != null)
             {
-                COSDictionary signatureDict = (COSDictionary) base;
-                base = signatureDict.getDictionaryObject(COSName.REFERENCE);
-                if (base instanceof COSArray)
-                {
-                    COSArray refArray = (COSArray) base;
-                    for (int i = 0; i < refArray.size(); ++i)
-                    {
-                        base = refArray.getObject(i);
-                        if (base instanceof COSDictionary)
-                        {
-                            COSDictionary sigRefDict = (COSDictionary) base;
-                            if (COSName.DOCMDP.equals(sigRefDict.getDictionaryObject(COSName.TRANSFORM_METHOD)))
-                            {
-                                base = sigRefDict.getDictionaryObject(COSName.TRANSFORM_PARAMS);
-                                if (base instanceof COSDictionary)
-                                {
-                                    COSDictionary transformDict = (COSDictionary) base;
-                                    int accessPermissions = transformDict.getInt(COSName.P, 2);
-                                    if (accessPermissions < 1 || accessPermissions > 3)
-                                    {
-                                        accessPermissions = 2;
-                                    }
-                                    return accessPermissions;
-                                }
-                            }
-                        }
-                    }
-                }
+                int accessPermissions = transformDict.getInt(COSName.P, 2);
+                return accessPermissions < 1 || accessPermissions > 3 ? 2 : accessPermissions;
             }
         }
         return 0;
+    }
+
+    /**
+     * Returns the transform parameters if the given signature reference entry uses the DocMDP
+     * transform method, otherwise null.
+     */
+    private static COSDictionary getDocMdpTransformParams(COSBase base)
+    {
+        if (!(base instanceof COSDictionary))
+        {
+            return null;
+        }
+        COSDictionary sigRefDict = (COSDictionary) base;
+        if (!COSName.DOCMDP.equals(sigRefDict.getDictionaryObject(COSName.TRANSFORM_METHOD)))
+        {
+            return null;
+        }
+        COSBase params = sigRefDict.getDictionaryObject(COSName.TRANSFORM_PARAMS);
+        return params instanceof COSDictionary ? (COSDictionary) params : null;
     }
 
     /**
@@ -134,13 +177,18 @@ public class SigUtils
      *
      * @param doc The document.
      * @param signature The signature object.
-     * @param accessPermissions The permission value (1, 2 or 3).
+     * @param permissions The permissions value (1, 2 or 3).
      *
-     * @throws IOException if a signature exists.
+     * @throws IOException if an approval signature exists.
+     * @throws IllegalArgumentException if the permissions value is invalid.
      */
-    public static void setMDPPermission(PDDocument doc, PDSignature signature, int accessPermissions)
+    public static void setMDPPermission(PDDocument doc, PDSignature signature, int permissions)
             throws IOException
     {
+        if (permissions != 1 && permissions != 2 && permissions != 3)
+        {
+            throw new IllegalArgumentException("The permissions value must be 1, 2 or 3");
+        }
         for (PDSignature sig : doc.getSignatureDictionaries())
         {
             // "Approval signatures shall follow the certification signature if one is present"
@@ -161,7 +209,7 @@ public class SigUtils
         // all values in the signature dictionary shall be direct objects
         COSDictionary transformParameters = new COSDictionary();
         transformParameters.setItem(COSName.TYPE, COSName.TRANSFORM_PARAMS);
-        transformParameters.setInt(COSName.P, accessPermissions);
+        transformParameters.setInt(COSName.P, permissions);
         transformParameters.setName(COSName.V, "1.2");
         transformParameters.setNeedToBeUpdated(true);
         transformParameters.setDirect(true);
@@ -280,7 +328,7 @@ public class SigUtils
             int sigOffset = signature.getByteRange()[1];
             sortedMap.put(sigOffset, signature);
         }
-        if (sortedMap.size() > 0)
+        if (!sortedMap.isEmpty())
         {
             PDSignature lastSignature = sortedMap.get(sortedMap.lastKey());
             COSBase type = lastSignature.getCOSObject().getItem(COSName.TYPE);
@@ -288,6 +336,7 @@ public class SigUtils
             {
                 return lastSignature;
             }
+            LOG.warn("Signature with unknown type ignored: " + type);
         }
         return null;
     }
@@ -295,19 +344,18 @@ public class SigUtils
     static public TimeStampToken extractTimeStampTokenFromSignerInformation(SignerInformation signerInformation)
             throws CMSException, IOException, TSPException
     {
-        if (signerInformation.getUnsignedAttributes() == null)
+        AttributeTable unsignedAttributes = signerInformation.getUnsignedAttributes();
+        if (unsignedAttributes == null)
         {
             return null;
         }
-        AttributeTable unsignedAttributes = signerInformation.getUnsignedAttributes();
         // https://stackoverflow.com/questions/1647759/how-to-validate-if-a-signed-jar-contains-a-timestamp
-        Attribute attribute = unsignedAttributes.get(
-                PKCSObjectIdentifiers.id_aa_signatureTimeStampToken);
+        Attribute attribute = unsignedAttributes.get(PKCSObjectIdentifiers.id_aa_signatureTimeStampToken);
         if (attribute == null)
         {
             return null;
         }
-        ASN1Object obj = (ASN1Object) attribute.getAttrValues().getObjectAt(0);
+        ASN1Object obj = attribute.getAttrValues().getObjectAt(0).toASN1Primitive();
         CMSSignedData signedTSTData = new CMSSignedData(obj.getEncoded());
         return new TimeStampToken(signedTSTData);
     }
@@ -315,16 +363,38 @@ public class SigUtils
     public static void validateTimestampToken(TimeStampToken timeStampToken)
             throws IOException, CertificateException, TSPException, OperatorCreationException
     {
-        // https://stackoverflow.com/questions/42114742/
-        @SuppressWarnings("unchecked") // TimeStampToken.getSID() is untyped
-        Collection<X509CertificateHolder> tstMatches =
-                timeStampToken.getCertificates().getMatches(timeStampToken.getSID());
-        X509CertificateHolder certificateHolder = tstMatches.iterator().next();
+        X509CertificateHolder tstCertificateHolder = getCertificateHolderFromTimeStampToken(timeStampToken);
         SignerInformationVerifier siv = 
-                new JcaSimpleSignerInfoVerifierBuilder().setProvider(SecurityProvider.getProvider()).build(certificateHolder);
+                new JcaSimpleSignerInfoVerifierBuilder().setProvider(SecurityProvider.getProvider()).build(tstCertificateHolder);
         timeStampToken.validate(siv);
     }
 
+    /**
+     * Extract X.509 certificate from a timestamp
+     * @param timeStampToken
+     * @return the X.509 certificate.
+     * @throws CertificateException 
+     * @throws IOException 
+     */
+    public static X509Certificate getCertificateFromTimeStampToken(TimeStampToken timeStampToken)
+            throws CertificateException, IOException
+    {
+        X509CertificateHolder tstCertificateHolder = getCertificateHolderFromTimeStampToken(timeStampToken);
+        return new JcaX509CertificateConverter().getCertificate(tstCertificateHolder);
+    }
+
+    private static X509CertificateHolder getCertificateHolderFromTimeStampToken(TimeStampToken timeStampToken)
+            throws StoreException, IOException
+    {
+        @SuppressWarnings("unchecked") // TimeStampToken.getSID() is untyped
+        Collection<X509CertificateHolder> tstMatches =
+                timeStampToken.getCertificates().getMatches(timeStampToken.getSID());
+        if (tstMatches.isEmpty())
+        {
+            throw new IOException("Timestamp token has no certificates");
+        }
+        return tstMatches.iterator().next();
+    }
 
     /**
      * Verify the certificate chain up to the root, including OCSP or CRL. However this does not
@@ -384,46 +454,93 @@ public class SigUtils
             }
         }
     }
+    
+    /**
+     * A simple but very restrictive access control logic.
+     * <p>
+     * Create your own but use a zero-trust mindset.
+     *
+     * @param uri
+     * @throws IOException
+     */
+    public static void checkAccess(URI uri) throws IOException
+    {
+        if (!ALLOW_URL_SET.contains(uri.toString()))
+        {
+            throw new IOException("URL '" + uri + "' not in ALLOW_URL_SET");
+        }
+    }
 
     /**
      * Like {@link URL#openStream()} but will follow redirection from http to https.
      *
-     * @param urlString
+     * @param urlString http URL string
      * @return
-     * @throws MalformedURLException
      * @throws IOException 
+     * @throws URISyntaxException 
      */
-    public static InputStream openURL(String urlString) throws MalformedURLException, IOException
+    public static InputStream openURL(String urlString) throws IOException, URISyntaxException
     {
-        URL url = new URL(urlString);
-        if (!urlString.startsWith("http"))
+        URI uri = new URI(urlString);
+        String scheme = uri.getScheme();
+        if (!"http".equals(scheme) && !"https".equals(scheme))
         {
-            // so that ftp is still supported
-            return url.openStream();
+            throw new IOException(scheme + " scheme not supported");
         }
-        HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        int responseCode = con.getResponseCode();
-        LOG.info(responseCode + " " + con.getResponseMessage());
-        if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
-            responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
-            responseCode == HttpURLConnection.HTTP_SEE_OTHER)
+
+        checkAccess(uri);
+
+        HttpURLConnection con = openURI(uri);
+        try
         {
-            String location = con.getHeaderField("Location");
-            if (urlString.startsWith("http://") &&
-                location.startsWith("https://") &&
-                urlString.substring(7).equals(location.substring(8)))
+            int responseCode = con.getResponseCode();
+            LOG.info(responseCode + " " + con.getResponseMessage());
+            if (isRedirect(responseCode))
             {
-                // redirection from http:// to https://
-                // change this code if you want to be more flexible (but think about security!)
-                LOG.info("redirection to " + location + " followed");
-                con.disconnect();
-                con = (HttpURLConnection) new URL(location).openConnection();
+                String location = con.getHeaderField("Location");
+                if (location != null &&
+                    urlString.startsWith("http://") &&
+                    location.startsWith("https://") &&
+                    urlString.substring(7).equals(location.substring(8)))
+                {
+                    // redirection from http:// to https://
+                    // change this code if you want to be more flexible (but think about security!)
+                    LOG.info("redirection to " + location + " followed");
+                    con.disconnect();
+                    con = openURI(new URI(location));
+                }
+                else
+                {
+                    LOG.info("redirection to " + location + " ignored");
+                }
             }
-            else
-            {
-                LOG.info("redirection to " + location + " ignored");
-            }
+            return new ConnectedInputStream(con, con.getInputStream());
         }
-        return new ConnectedInputStream(con, con.getInputStream());
+        catch (IOException ex)
+        {
+            con.disconnect();
+            throw ex;
+        }
+        catch (URISyntaxException ex)
+        {
+            con.disconnect();
+            throw ex;
+        }
+    }
+
+    private static HttpURLConnection openURI(URI uri) throws IOException
+    {
+        HttpURLConnection con = (HttpURLConnection) uri.toURL().openConnection();
+        con.setConnectTimeout(CONNECT_TIMEOUT_MS);
+        con.setReadTimeout(READ_TIMEOUT_MS);
+        return con;
+    }
+
+    private static boolean isRedirect(int responseCode)
+    {
+        return responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
+               responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
+               responseCode == HttpURLConnection.HTTP_SEE_OTHER ||
+               responseCode == 307 || responseCode == 308;
     }
 }

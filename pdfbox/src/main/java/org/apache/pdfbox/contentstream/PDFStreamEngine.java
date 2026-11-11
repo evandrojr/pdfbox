@@ -238,11 +238,11 @@ public abstract class PDFStreamEngine
         Matrix parentMatrix = initialMatrix;
         PDGraphicsState graphicsState = getGraphicsState();
 
-        // the stream's initial matrix includes the parent CTM, e.g. this allows a scaled form
-        initialMatrix = graphicsState.getCurrentTransformationMatrix().clone();
-
         // transform the CTM using the stream's matrix
         graphicsState.getCurrentTransformationMatrix().concatenate(group.getMatrix());
+        
+        // the stream's initial matrix includes the parent CTM, e.g. this allows a scaled form
+        initialMatrix = graphicsState.getCurrentTransformationMatrix().clone();
 
         // Before execution of the transparency group XObject’s content stream, 
         // the current blend mode in the graphics state shall be initialized to Normal, 
@@ -713,6 +713,10 @@ public abstract class PDFStreamEngine
             {
                 LOG.error("Nested arrays are not allowed in an array for TJ operation: " + obj);
             }
+            else if (obj == null)
+            {
+                LOG.error("(null) element in array for TJ operation");
+            }
             else
             {
                 LOG.error("Unknown type " + obj.getClass().getSimpleName()
@@ -768,13 +772,12 @@ public abstract class PDFStreamEngine
         Matrix textMatrix = state.getTextMatrix();
 
         // read the stream until it is empty
-        InputStream in = new ByteArrayInputStream(string);
-        while (in.available() > 0)
+        InputStream bais = new ByteArrayInputStream(string);
+        for (int before = bais.available(); before > 0; before = bais.available())
         {
             // decode a character
-            int before = in.available();
-            int code = font.readCode(in);
-            int codeLength = before - in.available();
+            int code = font.readCode(bais);
+            int codeLength = before - bais.available();
 
             // Word spacing shall be applied to every occurrence of the single-byte character code
             // 32 in a string when using a simple font or a composite font that defines code 32 as
@@ -922,10 +925,23 @@ public abstract class PDFStreamEngine
     protected void showType3Glyph(Matrix textRenderingMatrix, PDType3Font font, int code,
             String unicode, Vector displacement) throws IOException
     {
-        PDType3CharProc charProc = font.getCharProc(code);
-        if (charProc != null)
+        try
         {
-            processType3Stream(charProc, textRenderingMatrix);
+            increaseLevel();
+            if (getLevel() > 50)
+            {
+                LOG.error("recursion is too deep, skipping Type3 glyph");
+                return;
+            }
+            PDType3CharProc charProc = font.getCharProc(code);
+            if (charProc != null)
+            {
+                processType3Stream(charProc, textRenderingMatrix);
+            }
+        }
+        finally
+        {
+            decreaseLevel();
         }
     }
 

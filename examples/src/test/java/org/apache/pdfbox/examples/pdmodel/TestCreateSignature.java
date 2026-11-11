@@ -70,7 +70,9 @@ import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.PDPageTree;
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.SecurityProvider;
+import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.ExternalSigningSupport;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
@@ -265,6 +267,7 @@ public class TestCreateSignature
      * @throws GeneralSecurityException
      * @throws TSPException
      * @throws CertificateVerificationException 
+     * @throws OCSPException 
      */
     @Test
     public void testCreateSignedTimeStamp()
@@ -282,8 +285,9 @@ public class TestCreateSignature
         byte[] signedFileContent =
                 signature.getSignedContent(new FileInputStream(new File(outDir, fileName)));
         byte[] contents = signature.getContents();
-        TimeStampToken timeStampToken = new TimeStampToken(new CMSSignedData(contents));
         ByteArrayInputStream certStream = new ByteArrayInputStream(contents);
+        TimeStampToken timeStampToken = new TimeStampToken(new CMSSignedData(certStream));
+        certStream.reset();
         Collection<? extends Certificate> certs = certificateFactory.generateCertificates(certStream);
 
         String hashAlgorithm = timeStampToken.getTimeStampInfo().getMessageImprintAlgOID().getId();
@@ -305,8 +309,8 @@ public class TestCreateSignature
         String substring = name.substring(0, name.lastIndexOf('.'));
 
         File outFile = new File(outDir, substring + "_LTV.pdf");
-        AddValidationInformation addValidationInformation = new AddValidationInformation();
-        addValidationInformation.validateSignature(inFile, outFile);
+        // use main() for extra coverage, only possible if in the same directory
+        AddValidationInformation.main(new String[] { inFile.getAbsolutePath() });
 
         checkLTV(outFile);
     }
@@ -436,17 +440,24 @@ public class TestCreateSignature
         return MessageFormat.format(filePattern,(externallySign ? "_ext" : ""));
     }
 
-    // This check fails with a file created with the code before PDFBOX-3011 was solved.
     private void checkSignature(File origFile, File signedFile, boolean checkTimeStamp)
             throws IOException, CMSException, OperatorCreationException, GeneralSecurityException,
             TSPException, CertificateVerificationException
     {
-        PDDocument document = PDDocument.load(origFile);
+        checkSignature(origFile, signedFile, checkTimeStamp, null);
+    }
+
+    // This check fails with a file created with the code before PDFBOX-3011 was solved.
+    private void checkSignature(File origFile, File signedFile, boolean checkTimeStamp, String password)
+            throws IOException, CMSException, OperatorCreationException, GeneralSecurityException,
+            TSPException, CertificateVerificationException
+    {
+        PDDocument document = PDDocument.load(origFile, password);
         // get string representation of pages COSObject
         String origPageKey = document.getDocumentCatalog().getCOSObject().getItem(COSName.PAGES).toString();
         document.close();
 
-        document = PDDocument.load(signedFile);
+        document = PDDocument.load(signedFile, password);
         
         // early detection of problems in the page structure
         int p = 0;
@@ -491,7 +502,7 @@ public class TestCreateSignature
             // inspiration:
             // http://stackoverflow.com/a/26702631/535646
             // http://stackoverflow.com/a/9261365/535646
-            CMSSignedData signedData = new CMSSignedData(new CMSProcessableByteArray(buf), contents);
+            CMSSignedData signedData = new CMSSignedData(new CMSProcessableByteArray(buf), new ByteArrayInputStream(contents));
             Store certificatesStore = signedData.getCertificates();
             Collection<SignerInformation> signers = signedData.getSignerInfos().getSigners();
             SignerInformation signerInformation = signers.iterator().next();
@@ -759,7 +770,7 @@ public class TestCreateSignature
         hexSignature = bfr.readLine();
         bfr.close();
 
-        CMSSignedData signedData = new CMSSignedData(Hex.decodeHex(hexSignature));
+        CMSSignedData signedData = new CMSSignedData(new ByteArrayInputStream(Hex.decodeHex(hexSignature)));
         Collection<SignerInformation> signers = signedData.getSignerInfos().getSigners();
         SignerInformation signerInformation = signers.iterator().next();
         Store<X509CertificateHolder> certificatesStore = signedData.getCertificates();
@@ -901,6 +912,55 @@ public class TestCreateSignature
         checkSignature(file2, new File(outDir, fileNameSigned2), false);
     }
 
+    /** 
+     * PDFBOX-6289: sign an encrypted PDF and check that the placeholder wasn't encrypted.
+     *
+     * @param externallySign
+     *
+     * @throws IOException
+     * @throws GeneralSecurityException
+     * @throws CMSException
+     * @throws OperatorCreationException
+     * @throws TSPException
+     * @throws CertificateVerificationException 
+     */
+    @Test
+    public void testSignEncrypted()
+            throws IOException, GeneralSecurityException, CMSException,
+            OperatorCreationException, TSPException, CertificateVerificationException
+    {
+        File encryptedFile;
+        String pdfPassword = "12345"; // https://www.youtube.com/watch?v=a6iW-8xPw3k
+
+        // encrypt
+        PDDocument doc1 = PDDocument.load(new File(inDir, "sign_me.pdf"));
+        StandardProtectionPolicy spp
+                = new StandardProtectionPolicy("owner", pdfPassword, new AccessPermission());
+        spp.setPreferAES(true);
+        doc1.protect(spp);
+        encryptedFile = new File(outDir, getOutputFileName("PDFBOX-6289-encrypted{0}.pdf"));
+        doc1.save(encryptedFile);
+        doc1.close();
+
+        // sign PDF
+        CreateSignature signing = new CreateSignature(keyStore, password.toCharArray());
+        signing.setExternalSigning(externallySign);
+        final String fileNameSigned = getOutputFileName("PDFBOX-6289-encrypted_signed{0}.pdf");
+        signing.signDetached(encryptedFile, new File(outDir, fileNameSigned), null, pdfPassword);
+
+        checkSignature(encryptedFile, new File(outDir, fileNameSigned), false, pdfPassword);
+
+        PDDocument doc2 = PDDocument.load(new File(outDir, fileNameSigned), pdfPassword);
+        PDSignature sig = doc2.getLastSignatureDictionary();
+        byte[] contents = sig.getContents();
+        Assert.assertEquals(0, contents[contents.length - 1]);
+        Assert.assertEquals(0, contents[contents.length - 2]);
+        Assert.assertEquals(0, contents[contents.length - 3]);
+        Assert.assertEquals(0, contents[contents.length - 4]);
+        Assert.assertEquals(0, contents[contents.length - 5]);
+        doc2.close();
+    }
+
     private void checkLTV(File outFile)
             throws IOException, GeneralSecurityException, OCSPException, OperatorCreationException,
             CMSException
@@ -919,7 +979,7 @@ public class TestCreateSignature
         byte[] signatureHash = MessageDigest.getInstance("SHA-1").digest(contents);
         String hexSignatureHash = Hex.getString(signatureHash);
         System.out.println("hexSignatureHash: " + hexSignatureHash);
-        CMSSignedData signedData = new CMSSignedData(contents);
+        CMSSignedData signedData = new CMSSignedData(new ByteArrayInputStream(contents));
         Store<X509CertificateHolder> certificatesStore = signedData.getCertificates();
         HashSet<X509CertificateHolder> certificateHolderSet =
                 new HashSet<X509CertificateHolder>(certificatesStore.getMatches(null));
@@ -1036,6 +1096,9 @@ public class TestCreateSignature
         {
             BasicOCSPResp basicResponse = (BasicOCSPResp) ocspResp.getResponseObject();
             Assert.assertEquals(OCSPResponseStatus.SUCCESSFUL, ocspResp.getStatus());
+            // A failure here may also be caused by a TSA whose BasicOCSPResponse does not include
+            // embedded responder certificates, e.g. DigiCert's TSA (http://timestamp.digicert.com).
+            // This is optional, see https://datatracker.ietf.org/doc/html/rfc6960 and search for BasicOCSPResponse.
             Assert.assertTrue("OCSP should have at least 1 certificate", basicResponse.getCerts().length >= 1);
             BEROctetString encodedSignature = new BEROctetString(basicResponse.getSignature());
             byte[] ocspSignatureHash = MessageDigest.getInstance("SHA-1").digest(encodedSignature.getEncoded());

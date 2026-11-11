@@ -19,12 +19,36 @@ package org.apache.fontbox.ttf;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
 
 import org.junit.Test;
 
 public class TrueTypeFontCollectionTest
 {
+    @Test
+    public void testMissingTtcHeader()
+    {
+        try
+        {
+            new TrueTypeCollection(new ByteArrayInputStream(new byte[4]));
+        }
+        catch (IOException ex)
+        {
+            // this is the expected behaviour
+            assertEquals("Missing TTC header", ex.getMessage());
+        }
+        catch (Throwable throwable)
+        {
+            fail("Missing ttc header not detected!");
+        }
+    }
+
     @Test
     public void testNumberOfFonts()
     {
@@ -34,13 +58,69 @@ public class TrueTypeFontCollectionTest
         {
             new TrueTypeCollection(new ByteArrayInputStream(payload));
         }
-        catch (IOException exception)
+        catch (IOException ex)
         {
             // this is the expected behaviour
+            assertEquals("Invalid number of fonts 2147483647", ex.getMessage());
         }
         catch (Throwable throwable)
         {
             fail("Invalid number of fonts not detected!");
         }
+    }
+
+    @Test
+    public void testMingLiu() throws IOException
+    {
+        checkTrueTypeCollection("c:/windows/fonts/mingliu.ttc", "[MingLiU, PMingLiU, Ming-Lt-HKSCS-UNI-H]");
+    }
+
+    @Test
+    public void testMsMincho() throws IOException
+    {
+        checkTrueTypeCollection("c:/windows/fonts/msmincho.ttc", "[MS-Mincho, MS-PMincho]");
+    }
+
+    @Test
+    public void testSimSun() throws IOException
+    {
+        checkTrueTypeCollection("c:/windows/fonts/simsun.ttc", "[SimSun, NSimSun]");
+    }
+
+    @Test
+    public void testLucidaGrande() throws IOException
+    {
+        checkTrueTypeCollection("/System/Library/Fonts/LucidaGrande.ttc",
+                "[LucidaGrande, LucidaGrande-Bold, .LucidaGrandeUI, .LucidaGrandeUI-Bold]");
+    }
+
+    @Test
+    public void testAvenir() throws IOException
+    {
+        checkTrueTypeCollection("/System/Library/Fonts/Avenir.ttc",
+                "[Avenir-Book, Avenir-BookOblique, Avenir-Black, Avenir-BlackOblique, "
+                        + "Avenir-Heavy, Avenir-HeavyOblique, Avenir-Light, Avenir-LightOblique, "
+                        + "Avenir-Medium, Avenir-MediumOblique, Avenir-Oblique, Avenir-Roman]");
+    }
+
+    private void checkTrueTypeCollection(String filename, String expected) throws IOException
+    {
+        File file = new File(filename);
+        assumeTrue(file.exists());
+        final TrueTypeCollection ttc = new TrueTypeCollection(file);
+        final List<String> list = new ArrayList();
+        ttc.processAllFonts(new TrueTypeCollection.TrueTypeFontProcessor()
+        {
+            @Override
+            public void process(TrueTypeFont ttf) throws IOException
+            {
+                list.add(ttf.getName());
+                TrueTypeFont ttfByName = ttc.getFontByName(ttf.getName());
+                assertEquals(ttf.getName(), ttfByName.getName());
+                ttfByName.close();
+            }
+        });
+        assertEquals(expected, list.toString());
+        ttc.close();
     }
 }

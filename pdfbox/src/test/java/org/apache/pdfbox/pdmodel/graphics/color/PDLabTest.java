@@ -16,22 +16,30 @@
 package org.apache.pdfbox.pdmodel.graphics.color;
 
 import java.util.Arrays;
-import junit.framework.TestCase;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.pdmodel.common.PDRange;
+
+import org.junit.Test;
 
 /**
  *
  * @author Tilman Hausherr
  */
-public class PDLabTest extends TestCase
+public class PDLabTest
 {
 
     /**
      * This test checks that getting default values do not alter the object, 
      * and checks getters and setters.
      */
+    @Test
     public void testLAB()
     {
         PDLab pdLab = new PDLab();
@@ -43,16 +51,16 @@ public class PDLabTest extends TestCase
         assertEquals(3, pdLab.getNumberOfComponents());
         assertNotNull(pdLab.getInitialColor());
         assertTrue(Arrays.equals(new float[]{0,0,0}, pdLab.getInitialColor().getComponents()));
-        assertEquals(0f, pdLab.getBlackPoint().getX());
-        assertEquals(0f, pdLab.getBlackPoint().getY());
-        assertEquals(0f, pdLab.getBlackPoint().getZ());
-        assertEquals(1f, pdLab.getWhitepoint().getX());
-        assertEquals(1f, pdLab.getWhitepoint().getY());
-        assertEquals(1f, pdLab.getWhitepoint().getZ());
-        assertEquals(-100f, pdLab.getARange().getMin());
-        assertEquals(100f, pdLab.getARange().getMax());
-        assertEquals(-100f, pdLab.getBRange().getMin());
-        assertEquals(100f, pdLab.getBRange().getMax());
+        assertEquals(0f, pdLab.getBlackPoint().getX(), 0);
+        assertEquals(0f, pdLab.getBlackPoint().getY(), 0);
+        assertEquals(0f, pdLab.getBlackPoint().getZ(), 0);
+        assertEquals(1f, pdLab.getWhitepoint().getX(), 0);
+        assertEquals(1f, pdLab.getWhitepoint().getY(), 0);
+        assertEquals(1f, pdLab.getWhitepoint().getZ(), 0);
+        assertEquals(-100f, pdLab.getARange().getMin(), 0);
+        assertEquals(100f, pdLab.getARange().getMax(), 0);
+        assertEquals(-100f, pdLab.getBRange().getMin(), 0);
+        assertEquals(100f, pdLab.getBRange().getMax(), 0);
         assertEquals("read operations should not change the size of /Lab objects", 0, dict.size());
         dict.toString(); // rev 1571125 did a stack overflow here
 
@@ -65,10 +73,10 @@ public class PDLabTest extends TestCase
         pdRange.setMin(3);
         pdRange.setMax(4);
         pdLab.setBRange(pdRange);
-        assertEquals(-1f, pdLab.getARange().getMin());
-        assertEquals(2f, pdLab.getARange().getMax());
-        assertEquals(3f, pdLab.getBRange().getMin());
-        assertEquals(4f, pdLab.getBRange().getMax());
+        assertEquals(-1f, pdLab.getARange().getMin(), 0);
+        assertEquals(2f, pdLab.getARange().getMax(), 0);
+        assertEquals(3f, pdLab.getBRange().getMin(), 0);
+        assertEquals(4f, pdLab.getBRange().getMax(), 0);
         PDTristimulus pdTristimulus = new PDTristimulus();
         pdTristimulus.setX(5);
         pdTristimulus.setY(6);
@@ -79,13 +87,73 @@ public class PDLabTest extends TestCase
         pdTristimulus.setY(9);
         pdTristimulus.setZ(10);
         pdLab.setBlackPoint(pdTristimulus);
-        assertEquals(5f, pdLab.getWhitepoint().getX());
-        assertEquals(6f, pdLab.getWhitepoint().getY());
-        assertEquals(7f, pdLab.getWhitepoint().getZ());
-        assertEquals(8f, pdLab.getBlackPoint().getX());
-        assertEquals(9f, pdLab.getBlackPoint().getY());
-        assertEquals(10f, pdLab.getBlackPoint().getZ());
+        assertEquals(5f, pdLab.getWhitepoint().getX(), 0);
+        assertEquals(6f, pdLab.getWhitepoint().getY(), 0);
+        assertEquals(7f, pdLab.getWhitepoint().getZ(), 0);
+        assertEquals(8f, pdLab.getBlackPoint().getX(), 0);
+        assertEquals(9f, pdLab.getBlackPoint().getY(), 0);
+        assertEquals(10f, pdLab.getBlackPoint().getZ(), 0);
         assertTrue(Arrays.equals(new float[]{0,0,3}, pdLab.getInitialColor().getComponents()));
     }
 
+    @Test
+    public void testClamp()
+    {
+        PDLab lab = new PDLab();
+        assertEquals(-100, lab.getARange().getMin(), 0f);
+        assertEquals(100, lab.getARange().getMax(), 0f);
+        assertEquals(-100, lab.getBRange().getMin(), 0f);
+        assertEquals(100, lab.getBRange().getMax(), 0f);
+        assertEquals("[0.0, 100.0, -100.0, 100.0, -100.0, 100.0]", 
+                Arrays.toString(lab.getDefaultDecode(1)));
+        PDRange aRange = new PDRange();
+        aRange.setMin(-160);
+        aRange.setMax(160);
+        lab.setARange(aRange);
+        PDRange bRange = new PDRange();
+        bRange.setMin(-160);
+        bRange.setMax(160);
+        lab.setBRange(bRange);
+        float[] lab1 = new float[]{-101, -161, -161};
+        float[] lab2 = new float[]{-100, -160, -160};
+        float[] lab3 = new float[]{0, 0, 0};
+        float[] lab4 = new float[]{100, 160, 160};
+        float[] lab5 = new float[]{101, 161, 161};
+        lab.clamp(lab1);
+        lab.clamp(lab2);
+        lab.clamp(lab3);
+        lab.clamp(lab4);
+        lab.clamp(lab5);
+        assertEquals("[0.0, -160.0, -160.0]", Arrays.toString(lab1));
+        assertEquals("[0.0, -160.0, -160.0]", Arrays.toString(lab2));
+        assertEquals("[0.0, 0.0, 0.0]", Arrays.toString(lab3));
+        assertEquals("[100.0, 160.0, 160.0]", Arrays.toString(lab4));
+        assertEquals("[100.0, 160.0, 160.0]", Arrays.toString(lab5));
+    }
+
+    @Test
+    public void testToRGB()
+    {
+        // Author: ChatGPT
+        PDLab lab = new PDLab();
+
+        // PDF Lab values: L* is 0..100, a* and b* are -100..100.
+        float[] black = lab.toRGB(new float[] { 0, 0, 0 });
+        float[] white = lab.toRGB(new float[] { 100, 0, 0 });
+        float[] red = lab.toRGB(new float[] { 53, 80, 67 });
+
+        // Black and white should be at the ends of the RGB range.
+        assertArrayEquals(new float[] { 0, 0, 0 }, black, 0.01f);
+        assertArrayEquals(new float[] { 1, 1, 1 }, white, 0.02f);
+
+        // Red should have a higher red component than green and blue.
+        assertTrue(red[0] > red[1]);
+        assertTrue(red[0] > red[2]);
+
+        // All RGB components must be in the valid range.
+        for (float component : red)
+        {
+            assertTrue(component >= 0 && component <= 1);
+        }
+    }
 }

@@ -144,8 +144,11 @@ public final class ExtractEmbeddedFiles
             throws IOException
     {
         File file = new File(directoryPath, filename);
+        file = file.getCanonicalFile(); // delete this line to allow symlinks
         File parentDir = file.getParentFile();
-        if (!parentDir.getCanonicalPath().startsWith(directoryPath))
+        String parentCanonical = parentDir.getCanonicalPath();
+        if (!parentCanonical.equals(directoryPath) &&
+            !parentCanonical.startsWith(directoryPath + File.separator))
         {
             System.err.println("Ignoring " + filename + " (different directory)");
             return;

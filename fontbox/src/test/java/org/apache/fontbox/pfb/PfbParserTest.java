@@ -16,11 +16,14 @@
  */
 package org.apache.fontbox.pfb;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 
 import org.apache.fontbox.encoding.BuiltInEncoding;
+import org.apache.fontbox.encoding.StandardEncoding;
 import org.apache.fontbox.type1.Type1Font;
 
 import org.junit.Assert;
@@ -76,9 +79,32 @@ public class PfbParserTest
         is.close();
         Assert.assertEquals("Version 2.33", font.getVersion());
         Assert.assertEquals("DejaVuSerifCondensed", font.getFontName());
+        Assert.assertEquals("DejaVuSerifCondensed", font.getName());
         Assert.assertEquals("DejaVu Serif Condensed", font.getFullName());
         Assert.assertEquals("DejaVu Serif Condensed", font.getFamilyName());
         Assert.assertEquals("Copyright [c] 2003 by Bitstream, Inc. All Rights Reserved.", font.getNotice());
+        Assert.assertEquals(11974, font.getSubrsArray().size());
+        Assert.assertEquals(0, font.getPaintType());
+        Assert.assertEquals(1, font.getFontType());
+        Assert.assertEquals("", font.getFontID());
+        Assert.assertEquals(0, font.getUniqueID());
+        Assert.assertEquals(0f, font.getStrokeWidth(), 0);
+        Assert.assertEquals(-63f, font.getUnderlinePosition(), 0);
+        Assert.assertEquals(44f, font.getUnderlineThickness(), 0);
+        Assert.assertEquals("[-15, 0, 729, 744, 512, 533, 785, 800, 760, 777, 829, 847, 920, 935]", font.getBlueValues().toString());
+        Assert.assertEquals("[-222, -203]", font.getOtherBlues().toString());
+        Assert.assertEquals("[]", font.getFamilyBlues().toString());
+        Assert.assertEquals("[]", font.getFamilyOtherBlues().toString());
+        Assert.assertEquals(0f, font.getBlueScale(), 0);
+        Assert.assertEquals(0, font.getBlueShift());
+        Assert.assertEquals(0, font.getBlueFuzz());
+        Assert.assertEquals(0, font.getLanguageGroup());
+        Assert.assertEquals("[53]", font.getStdHW().toString());
+        Assert.assertEquals("[90]", font.getStdVW().toString());
+        Assert.assertEquals("[53]", font.getStemSnapH().toString());
+        Assert.assertEquals("[54, 66, 80, 90, 101, 146]", font.getStemSnapV().toString());
+        Assert.assertEquals("[0.001, 0, 0, 0.001, 0, 0]", font.getFontMatrix().toString());
+        Assert.assertEquals("[-692.0,-347.0,1511.0,1109.0]", font.getFontBBox().toString());
         Assert.assertEquals(false, font.isFixedPitch());
         Assert.assertEquals(false, font.isForceBold());
         Assert.assertEquals(0f, font.getItalicAngle(), 0);
@@ -87,6 +113,36 @@ public class PfbParserTest
         Assert.assertEquals(5959, font.getASCIISegment().length);
         Assert.assertEquals(1056090, font.getBinarySegment().length);
         Assert.assertEquals(3399, font.getCharStringsDict().size());
+    }
+
+    /**
+     * PDFBOX-3654: font with hex encoded binary segment.
+     *
+     * @throws IOException 
+     */
+    @Test
+    public void testPfbPDFBox3654() throws IOException
+    {
+        File file = new File("target/fonts/KIX-Barcode-Regular.pfb");
+        InputStream is = new FileInputStream(file);
+        byte[] ba = new byte[(int) file.length()];
+        is.read(ba);
+        is.close();
+        Type1Font font = Type1Font.createWithSegments(Arrays.copyOfRange(ba, 0, 1039), 
+                                  Arrays.copyOfRange(ba, 1039, 1039 + 26868));
+        Assert.assertEquals("001.000", font.getVersion());
+        Assert.assertEquals("KIX-Barcode-Regular", font.getFontName());
+        Assert.assertEquals("KIX-Barcode-Regular", font.getFullName());
+        Assert.assertEquals("KIX-Barcode", font.getFamilyName());
+        Assert.assertEquals("", font.getNotice());
+        Assert.assertFalse(font.isFixedPitch());
+        Assert.assertFalse(font.isForceBold());
+        Assert.assertEquals(0f, font.getItalicAngle(), 0);
+        Assert.assertEquals("Regular", font.getWeight());
+        Assert.assertTrue(font.getEncoding() instanceof StandardEncoding);
+        Assert.assertEquals(1039, font.getASCIISegment().length);
+        Assert.assertEquals(26868, font.getBinarySegment().length);
+        Assert.assertEquals(257, font.getCharStringsDict().size());
     }
 
     /**

@@ -111,6 +111,16 @@ public class PDDocument implements Closeable
         {
             LOG.debug("voodoo error", ex);
         }
+        catch (UnsatisfiedLinkError ex)
+        {
+            // PDFBOX-6214: UnsatisfiedLinkError when awt missing with Graal on MacOS
+            LOG.debug(ex.getMessage(), ex);
+        }
+        catch (NoClassDefFoundError ex)
+        {
+            // PDFBOX-6219: NoClassDefFoundError when awt missing with Graal on Linux
+            LOG.debug(ex.getMessage(), ex);
+        }
 
         try
         {
@@ -245,7 +255,7 @@ public class PDDocument implements Closeable
      * 
      * @param doc The COSDocument that this document wraps.
      * @param source the parser which is used to read the pdf
-     * @param permission he access permissions of the pdf
+     * @param permission the access permissions of the pdf
      * 
      */
     public PDDocument(COSDocument doc, RandomAccessRead source, AccessPermission permission)
@@ -985,10 +995,28 @@ public class PDDocument implements Closeable
 
     /**
      * Returns the list of fonts which will be subset before the document is saved.
+     * 
+     * @deprecated use {@link #addFontForSubsetting(PDFont)} instead
      */
     Set<PDFont> getFontsToSubset()
     {
         return fontsToSubset;
+    }
+
+    /**
+     * Adds the given font to the list of fonts for subsetting.
+     * 
+     * @param font the font to be added to the list of fonts for subsetting
+     * @throws IllegalArgumentException If the font doesn't support subsetting
+     */
+    public void addFontForSubsetting(PDFont font)
+    {
+        if (!font.willBeSubset())
+        {
+            throw new IllegalArgumentException(
+                    "The font " + font.getName() + " doesn't support subsetting");
+        }
+        fontsToSubset.add(font);
     }
 
     /**
@@ -1418,7 +1446,7 @@ public class PDDocument implements Closeable
      * signed</a>. (PDFBox already does this for signature widget annotations)
      * <p>
      * Another problem with page-based modifications can occur if the page tree isn't flat: there
-     * won't be an closed update path from the catalog to the page. To fix this, add code like this:
+     * won't be a closed update path from the catalog to the page. To fix this, add code like this:
      * <pre>{@code
      * COSDictionary parent = page.getCOSObject().getCOSDictionary(COSName.PARENT);
      * while (parent != null)

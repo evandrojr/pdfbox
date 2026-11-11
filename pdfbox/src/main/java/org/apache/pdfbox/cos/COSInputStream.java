@@ -23,7 +23,6 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -54,22 +53,17 @@ public final class COSInputStream extends FilterInputStream
      * @param parameters Filter parameters.
      * @param in Encoded input stream.
      * @param scratchFile Scratch file to use, or null.
+     * @param options decode options for the encoded stream
      * @return Decoded stream.
      * @throws IOException If the stream could not be read.
      */
-    static COSInputStream create(List<Filter> filters, COSDictionary parameters, InputStream in,
-                                 ScratchFile scratchFile) throws IOException
-    {
-        return create(filters, parameters, in, scratchFile, DecodeOptions.DEFAULT);
-    }
-
     static COSInputStream create(List<Filter> filters, COSDictionary parameters, InputStream in,
                                  ScratchFile scratchFile, DecodeOptions options) throws IOException
     {
         InputStream input = in;
         if (filters.isEmpty())
         {
-            return new COSInputStream(in, Collections.<DecodeResult>emptyList());
+            return new COSInputStream(in, null);
         }
 
         List<DecodeResult> results = new ArrayList<DecodeResult>(filters.size());
@@ -118,37 +112,38 @@ public final class COSInputStream extends FilterInputStream
                 input = new ByteArrayInputStream(output.toByteArray());
             }
         }
-        return new COSInputStream(input, results);
+        if (results.isEmpty())
+        {
+            return new COSInputStream(in, null);
+        }
+        return new COSInputStream(input, results.get(results.size() - 1));
     }
 
-    private final List<DecodeResult> decodeResults;
+    private final DecodeResult decodeResult;
 
     /**
      * Constructor.
      * 
      * @param input decoded stream
-     * @param decodeResults results of decoding
+     * @param decodeResult result of decoding
      */
-    private COSInputStream(InputStream input, List<DecodeResult> decodeResults)
+    private COSInputStream(InputStream input, DecodeResult decodeResult)
     {
         super(input);
-        this.decodeResults = decodeResults;
+        this.decodeResult = decodeResult;
     }
     
     /**
      * Returns the result of the last filter, for use by repair mechanisms.
      * 
-     * @return the result of the decoding.
+     * @return the result of the last filter
      */
     public DecodeResult getDecodeResult()
     {
-        if (decodeResults.isEmpty())
+        if (decodeResult == null)
         {
             return DecodeResult.DEFAULT;
         }
-        else
-        {
-            return decodeResults.get(decodeResults.size() - 1);
-        }
+        return decodeResult;
     }
 }

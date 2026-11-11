@@ -16,7 +16,6 @@
  */
 package org.apache.pdfbox.pdmodel.encryption;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -26,6 +25,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Random;
  
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
@@ -73,6 +73,9 @@ public final class StandardSecurityHandler extends SecurityHandler
 
     // hashes used for Algorithm 2.B, depending on remainder from E modulo 3
     private static final String[] HASHES_2B = new String[] {"SHA-256", "SHA-384", "SHA-512"};
+
+    // SecureRandom.getInstanceStrong() would be better, but sometimes blocks on Linux
+    private static final Random RANDOM = new SecureRandom();
 
     /**
      * Constructor.
@@ -418,19 +421,18 @@ public final class StandardSecurityHandler extends SecurityHandler
     {
         try
         {
-            SecureRandom rnd = new SecureRandom();
             Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
 
             // make a random 256-bit file encryption key
             setEncryptionKey(new byte[32]);
-            rnd.nextBytes(getEncryptionKey());
+            RANDOM.nextBytes(getEncryptionKey());
 
             // Algorithm 8a: Compute U
             byte[] userPasswordBytes = truncate127(userPassword.getBytes(Charsets.UTF_8));
             byte[] userValidationSalt = new byte[8];
             byte[] userKeySalt = new byte[8];
-            rnd.nextBytes(userValidationSalt);
-            rnd.nextBytes(userKeySalt);
+            RANDOM.nextBytes(userValidationSalt);
+            RANDOM.nextBytes(userKeySalt);
             byte[] hashU = computeHash2B(concat(userPasswordBytes, userValidationSalt),
                     userPasswordBytes, null);
             byte[] u = concat(hashU, userValidationSalt, userKeySalt);
@@ -446,8 +448,8 @@ public final class StandardSecurityHandler extends SecurityHandler
             byte[] ownerPasswordBytes = truncate127(ownerPassword.getBytes(Charsets.UTF_8));
             byte[] ownerValidationSalt = new byte[8];
             byte[] ownerKeySalt = new byte[8];
-            rnd.nextBytes(ownerValidationSalt);
-            rnd.nextBytes(ownerKeySalt);
+            RANDOM.nextBytes(ownerValidationSalt);
+            RANDOM.nextBytes(ownerKeySalt);
             byte[] hashO = computeHash2B(concat(ownerPasswordBytes, ownerValidationSalt, u),
                     ownerPasswordBytes, u);
             byte[] o = concat(hashO, ownerValidationSalt, ownerKeySalt);
@@ -483,7 +485,7 @@ public final class StandardSecurityHandler extends SecurityHandler
             perms[11] = 'b';
             for (int i = 12; i <= 15; i++)
             {
-                perms[i] = (byte) rnd.nextInt();
+                perms[i] = (byte) RANDOM.nextInt();
             }
 
             cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(getEncryptionKey(), "AES"),
@@ -508,13 +510,15 @@ public final class StandardSecurityHandler extends SecurityHandler
         COSArray idArray = document.getDocument().getDocumentID();
 
         //check if the document has an id yet.  If it does not then generate one
+        byte[] userPasswordBytes = userPassword.getBytes(Charsets.ISO_8859_1);
+        byte[] ownerPasswordBytes = ownerPassword.getBytes(Charsets.ISO_8859_1);
         if (idArray == null || idArray.size() < 2)
         {
             MessageDigest md = MessageDigests.getMD5();
             BigInteger time = BigInteger.valueOf(System.currentTimeMillis());
             md.update(time.toByteArray());
-            md.update(ownerPassword.getBytes(Charsets.ISO_8859_1));
-            md.update(userPassword.getBytes(Charsets.ISO_8859_1));
+            md.update(ownerPasswordBytes);
+            md.update(userPasswordBytes);
             md.update(document.getDocument().toString().getBytes(Charsets.ISO_8859_1));
 
             byte[] id = md.digest(this.toString().getBytes(Charsets.ISO_8859_1));
@@ -529,15 +533,16 @@ public final class StandardSecurityHandler extends SecurityHandler
         COSString id = (COSString) idArray.getObject(0);
 
         byte[] ownerBytes = computeOwnerPassword(
-                ownerPassword.getBytes(Charsets.ISO_8859_1),
-                userPassword.getBytes(Charsets.ISO_8859_1), revision, length);
+                ownerPasswordBytes,
+                userPasswordBytes, revision, length);
 
+        byte[] idBytes = id.getBytes();
         byte[] userBytes = computeUserPassword(
-                userPassword.getBytes(Charsets.ISO_8859_1),
-                ownerBytes, permissionInt, id.getBytes(), revision, length, true);
+                userPasswordBytes,
+                ownerBytes, permissionInt, idBytes, revision, length, true);
 
-        setEncryptionKey(computeEncryptedKey(userPassword.getBytes(Charsets.ISO_8859_1), ownerBytes,
-                null, null, null, permissionInt, id.getBytes(), revision, length, true, false));
+        setEncryptionKey(computeEncryptedKey(userPasswordBytes, ownerBytes,
+                null, null, null, permissionInt, idBytes, revision, length, true, false));
 
         encryptionDictionary.setOwnerKey(ownerBytes);
         encryptionDictionary.setUserKey(userBytes);
@@ -835,7 +840,7 @@ public final class StandardSecurityHandler extends SecurityHandler
                 {
                     iterationKey[j] = (byte)(iterationKey[j] ^ i);
                 }
-                ByteArrayInputStream input = new ByteArrayInputStream(result.toByteArray());
+                byte[] input = result.toByteArray();
                 result.reset();
                 encryptDataRC4(iterationKey, input, result);
             }
@@ -873,7 +878,7 @@ public final class StandardSecurityHandler extends SecurityHandler
         byte[] paddedUser = truncateOrPad( userPassword );
 
         ByteArrayOutputStream encrypted = new ByteArrayOutputStream();
-        encryptDataRC4(rc4Key, new ByteArrayInputStream(paddedUser), encrypted);
+        encryptDataRC4(rc4Key, paddedUser, encrypted);
 
         if( encRevision == 3 || encRevision == 4 )
         {
@@ -885,7 +890,7 @@ public final class StandardSecurityHandler extends SecurityHandler
                 {
                     iterationKey[j] = (byte)(iterationKey[j] ^ (byte)i);
                 }
-                ByteArrayInputStream input = new ByteArrayInputStream( encrypted.toByteArray() );
+                byte[] input = encrypted.toByteArray();
                 encrypted.reset();
                 encryptDataRC4(iterationKey, input, encrypted );
             }
@@ -1129,7 +1134,7 @@ public final class StandardSecurityHandler extends SecurityHandler
                 byte[] eFirst = new byte[16];
                 System.arraycopy(e, 0, eFirst, 0, 16);
                 BigInteger bi = new BigInteger(1, eFirst);
-                BigInteger remainder = bi.mod(new BigInteger("3"));
+                BigInteger remainder = bi.mod(BigInteger.valueOf(3));
                 String nextHash = HASHES_2B[remainder.intValue()];
                 
                 md = MessageDigest.getInstance(nextHash);

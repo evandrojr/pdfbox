@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.fontbox.cff.CFFCIDFont;
 import org.apache.fontbox.cff.Type2CharString;
 import org.apache.fontbox.cmap.CMap;
 import org.apache.fontbox.ttf.CmapLookup;
@@ -49,6 +50,9 @@ public class PDCIDFontType2 extends PDCIDFont
     private final boolean isEmbedded;
     private final boolean isDamaged;
     private final CmapLookup cmap; // may be null
+    // PDFBOX-6293: substitute is CID-keyed with a different ROS: this font's CIDs are meaningless in it,
+    // resolve glyphs via Unicode instead (only when ordering is identity)
+    private final boolean isForeignCIDSubstitute;
     private Matrix fontMatrix;
     private BoundingBox fontBBox;
     private final Set<Integer> noMapping = new HashSet<Integer>();
@@ -136,6 +140,26 @@ public class PDCIDFontType2 extends PDCIDFont
         }
         cmap = ttf.getUnicodeCmapLookup(false);
         cid2gid = readCIDToGIDMap();
+        isForeignCIDSubstitute = !isEmbedded && ttf instanceof OpenTypeFont && isForeignCIDFont((OpenTypeFont) ttf);
+    }
+
+    private boolean isForeignCIDFont(OpenTypeFont substitute) throws IOException
+    {
+        if (substitute == null || !substitute.isPostScript() || !substitute.isSupportedOTF() ||
+            !(substitute.getCFF().getFont() instanceof CFFCIDFont))
+        {
+            return false;
+        }
+        CFFCIDFont cff = (CFFCIDFont) substitute.getCFF().getFont();
+        PDCIDSystemInfo ros = getCIDSystemInfo();
+        return "Identity".equals(cff.getOrdering()) && (ros == null ||
+            !nullSafeEquals(ros.getRegistry(), cff.getRegistry()) ||
+            !nullSafeEquals(ros.getOrdering(), cff.getOrdering()));
+    }
+
+    private static boolean nullSafeEquals(Object a, Object b)
+    {
+        return a == null ? b == null : a.equals(b);
     }
 
     private TrueTypeFont findFontOrSubstitute() throws IOException
@@ -274,6 +298,13 @@ public class PDCIDFontType2 extends PDCIDFont
                     // see PDFBOX-2599
                     return codeToCID(code);
                 }
+                else if (ttf instanceof OpenTypeFont && ((OpenTypeFont) ttf).isPostScript() && !isForeignCIDSubstitute)
+                {
+                    // "Identity" is the default for CFF-based OpenTypeFonts
+                    // (copied from segment below where font is embedded)
+                    // PDFBOX-6251 for the file from PDFBOX-122
+                    return codeToCID(code);
+                }
                 else if (unicode.length() > 1)
                 {
                     LOG.warn("Trying to map multi-byte character using 'cmap', result will be poor");
@@ -373,6 +404,20 @@ public class PDCIDFontType2 extends PDCIDFont
                 }
                 cid = 0;
             }
+        }
+        else if (!parent.getCMap().getName().startsWith("Identity-") &&
+                 parent.getCMap().getName().startsWith("Uni") &&
+                 parent.getCMapUCS2() != null)
+        {
+            // PDFBOX-5953: predefined "Uni...-UCS2/UTF16" CMaps use the raw UTF-16BE
+            // Unicode value as their codespace/code by definition (see e.g. the
+            // UniGB-UTF16-H resource, whose begincidchar entries map codes that are
+            // themselves Unicode code points, e.g. <00a4> to a CID). Writing the
+            // substituted font's own glyph index here instead (as done below for the
+            // general case) produces a code that decodes to a wrong, essentially
+            // arbitrary character once the CID/Unicode round trip in
+            // PDCIDFontType2#codeToGID or PDType0Font#toUnicode is applied to it.
+            cid = unicode;
         }
         else
         {

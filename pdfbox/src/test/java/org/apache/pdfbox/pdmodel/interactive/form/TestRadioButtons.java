@@ -16,6 +16,7 @@
  */
 package org.apache.pdfbox.pdmodel.interactive.form;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -143,6 +144,34 @@ public class TestRadioButtons
     }
 
     /**
+     * Test getting/setting the NoToggleToOff flag (PDF spec Ff bit 15).
+     *
+     * @throws IOException If there is an error creating the field.
+     */
+    @Test
+    public void testNoToggleToOff() throws IOException
+    {
+        PDDocument doc = new PDDocument();
+        PDAcroForm acroForm = new PDAcroForm(doc);
+        PDRadioButton radioButton = new PDRadioButton(acroForm);
+
+        // default shall be false/unset
+        assertFalse(radioButton.isNoToggleToOff());
+
+        radioButton.setNoToggleToOff(true);
+        assertTrue(radioButton.isNoToggleToOff());
+        // spec bit 15 -> mask 1 << 14
+        assertEquals(1 << 14,
+                radioButton.getCOSObject().getInt(COSName.FF) & (1 << 14));
+
+        radioButton.setNoToggleToOff(false);
+        assertFalse(radioButton.isNoToggleToOff());
+        assertEquals(0, radioButton.getCOSObject().getInt(COSName.FF) & (1 << 14));
+
+        doc.close();
+    }
+
+    /**
      * PDFBOX-3656 Radio button field with FLAG_RADIOS_IN_UNISON false
      * 
      * @throws IOException
@@ -216,9 +245,9 @@ public class TestRadioButtons
             try
             {
                 field.setValue("Invalid");
-                fail("Expected an IndexOutOfBoundsException to be thrown");
+                fail("Expected an IllegalArgumentException to be thrown");
             }
-            catch (Exception ex)
+            catch (IllegalArgumentException ex)
             {
                 // compare the messages
                 String expectedMessage = "value 'Invalid' is not a valid option for the field Checking/Savings, valid values are: [Checking, Savings] and Off";
@@ -289,9 +318,9 @@ public class TestRadioButtons
             try
             {
                 field.setValue(6);
-                fail("Expected an IndexOutOfBoundsException to be thrown");
+                fail("Expected an IllegalArgumentException to be thrown");
             }
-            catch (Exception ex)
+            catch (IllegalArgumentException ex)
             {
                 // compare the messages
                 String expectedMessage = "index '6' is not a valid index for the field Checking/Savings, valid indices are from 0 to 5";
@@ -308,7 +337,7 @@ public class TestRadioButtons
         }
     }
 
-        /**
+    /**
      * PDFBOX-4617 Enable getting selected index
      * 
      * @throws IOException
@@ -419,5 +448,136 @@ public class TestRadioButtons
         {
             IOUtils.closeQuietly(testPdf);
         }
-    }    
+    }
+
+    /**
+     * PDFBOX-6178: Ensure that RadioButton values with non-ASCII characters preserve encoding.
+     * When setting a RadioButton value to "männlich", both V and AS entries should preserve
+     * the original byte encoding from the appearance dictionary (0xE4 for ä in ISO-8859-1,
+     * not 0xC3 0xA4 from UTF-8).
+     * 
+     * @throws IOException
+     */
+    @Test
+    public void testPDFBox6178NonAsciiRadioButtonValue() throws IOException
+    {
+        PDDocument document = null;
+        File pdfFile = new File("target/pdfs/PDFBOX-6178.pdf");
+        if (!pdfFile.exists())
+        {
+            return;  // Skip test if PDF not available
+        }
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        // Load document, set value, and save to memory
+        try
+        {
+            document = PDDocument.load(pdfFile);
+            PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
+            PDField field = acroForm.getField("Geschlecht");
+            
+            field.setValue("männlich");
+            
+            // Verify V entry preserves encoding - should have 0xE4 byte for ä (ISO-8859-1)
+            COSName vEntry = (COSName) field.getCOSObject().getDictionaryObject(COSName.V);
+            assertNotNull("V entry should not be null after setValue", vEntry);
+            
+            // Check that the bytes contain 0xE4 (ISO-8859-1 ä) not 0xC3 0xA4 (UTF-8)
+            byte[] vBytes = vEntry.getBytes();
+            
+            assertFalse("V entry should not contain UTF-8 encoded ä (0xC3 0xA4)",
+                    containsSequence(vBytes, new byte[]{(byte) 0xC3, (byte) 0xA4}));
+            assertTrue("V entry should contain ISO-8859-1 encoded ä (0xE4)",
+                    containsSequence(vBytes, new byte[]{(byte) 0xE4}));
+            
+            // Verify AS entry preserves encoding
+            COSName asEntry = (COSName) field.getWidgets().get(0).getCOSObject()
+                    .getDictionaryObject(COSName.AS);
+            assertNotNull("AS entry should not be null after setValue", asEntry);
+            
+            // Check that the AS bytes also preserve ISO-8859-1 encoding
+            byte[] asBytes = asEntry.getBytes();
+            
+            assertFalse("AS entry should not contain UTF-8 encoded ä (0xC3 0xA4)",
+                    containsSequence(asBytes, new byte[]{(byte) 0xC3, (byte) 0xA4}));
+            assertTrue("AS entry should contain ISO-8859-1 encoded ä (0xE4)",
+                    containsSequence(asBytes, new byte[]{(byte) 0xE4}));
+            
+            document.save(baos);
+        }
+        finally
+        {
+            IOUtils.closeQuietly(document);
+        }
+
+        // Reload and verify entries are still correct
+        try
+        {
+            document = PDDocument.load(baos.toByteArray()); 
+            PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
+            PDField field = acroForm.getField("Geschlecht");
+            
+            // Verify V entry after reload
+            COSName vEntry = (COSName) field.getCOSObject().getDictionaryObject(COSName.V);
+            assertNotNull("V entry should not be null after reload", vEntry);
+            
+            byte[] vBytes = vEntry.getBytes();
+            assertFalse("V entry should still not contain UTF-8 ä after reload",
+                    containsSequence(vBytes, new byte[]{(byte) 0xC3, (byte) 0xA4}));
+            assertTrue("V entry should still contain ISO-8859-1 ä after reload",
+                    containsSequence(vBytes, new byte[]{(byte) 0xE4}));
+            
+            // Verify AS entry after reload
+            COSName asEntry = (COSName) field.getWidgets().get(0).getCOSObject()
+                    .getDictionaryObject(COSName.AS);
+            assertNotNull("AS entry should not be null after reload", asEntry);
+            
+            byte[] asBytes = asEntry.getBytes();
+            assertFalse("AS entry should still not contain UTF-8 ä after reload",
+                    containsSequence(asBytes, new byte[]{(byte) 0xC3, (byte) 0xA4}));
+            assertTrue("AS entry should still contain ISO-8859-1 ä after reload",
+                    containsSequence(asBytes, new byte[]{(byte) 0xE4}));
+        }
+        finally
+        {
+            IOUtils.closeQuietly(document);
+        }
+    }
+
+    /**
+     * Helper method to check if a byte sequence contains a particular sub-sequence.
+     *
+     * @param haystack the bytes to search in
+     * @param needle the bytes to search for
+     * @return true if needle is found in haystack, false otherwise
+     */
+    private boolean containsSequence(byte[] haystack, byte[] needle)
+    {
+        if (needle.length == 0)
+        {
+            return true;
+        }
+        if (needle.length > haystack.length)
+        {
+            return false;
+        }
+        for (int i = 0; i <= haystack.length - needle.length; i++)
+        {
+            boolean match = true;
+            for (int j = 0; j < needle.length; j++)
+            {
+                if (haystack[i + j] != needle[j])
+                {
+                    match = false;
+                    break;
+                }
+            }
+            if (match)
+            {
+                return true;
+            }
+        }
+        return false;
+    } 
 }
